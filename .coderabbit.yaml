@@ -1,0 +1,47 @@
+# CodeRabbit configuration for ActivityOps.
+# Review posture mirrors the v7 spec: evidence honesty and state-machine
+# correctness matter more than style.
+language: en-GB
+early_access: false
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!**/dist/**"
+    - "!**/node_modules/**"
+    - "!**/*.sqlite"
+  path_instructions:
+    - path: "apps/api/src/ring/**"
+      instructions: >-
+        Enforce spec v7 sec. 8-9. Client-side event_type and device filtering is
+        mandatory even when a server-side filter was sent. Pagination must start
+        at page 1, follow links.next only, guard repeated next URLs, and respect a
+        page cap. Never treat an integration error (401/403/429/timeout/malformed)
+        as negative site evidence. The readiness path must never call snapshot or
+        media endpoints.
+    - path: "apps/api/src/domain/**"
+      instructions: >-
+        Verification attempts are immutable - rechecks insert new attempts and
+        never UPDATE prior ones. Run status must be derived, never stored as an
+        editable column. A ring event may be claimed by at most one attempt
+        (unique constraint). FAIL must always be recordable without Ring evidence;
+        PASS on RING_REQUIRED checks must not be possible without a qualifying
+        claimed event.
+    - path: "apps/web/src/**"
+      instructions: >-
+        Reject wording that converts evidence into claims: no "person detected",
+        "motion detected", "site clear", "site safe", "verified safe". Allowed
+        phrasing is "Ring session observed during this check window",
+        "operator-attested PASS/FAIL", "OVERRIDDEN". Never render a Ring token.
+    - path: "**/*.{md,json}"
+      instructions: >-
+        Flag any access token, refresh token, AWS credential, real device id or
+        real user identifier in fixtures or docs.
+chat:
+  auto_reply: true
