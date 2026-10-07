@@ -22,3 +22,15 @@
 - Added evidence/day-1/T1..T10 templates with the required reporting fields.
 - Recorded D-007 (user runs T1-T8; no token enters the agent session), D-008 (endpoint paths are
   documentation-derived), D-009 (public repo + CodeRabbit as the review gate).
+
+## 2026-10-07 — Phase 2 (data model + domain state machine)
+- Added the full SQLite schema from spec sec. 23, with the one-to-one evidence claim, the
+  one-open-incident rule and attempt immutability enforced structurally rather than by convention.
+- Added deterministic readiness (sec. 11) as a pure function over a snapshot, returning ordered
+  machine-readable reasons that Phase 5 will use for the readiness explanation.
+- Added the attempt lifecycle: arming with a snapshotted window, evidence claiming with every
+  sec. 8 rule re-checked at bind time, attestation with the PASS gate, cancellation, and the
+  manager override recorded as a superseding OVERRIDDEN attempt.
+- Added the incident lifecycle with a legal-transition table, severity escalation and action trail.
+- Added run approval/cancellation and the Ring integration-state overlay.
+- 53 new tests (54 total) covering every state transition and both evidence-honesty boundaries.

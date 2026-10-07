@@ -9,7 +9,7 @@ never because code was written.
 |-------|--------|-------|---------|-----------|-------|----------|----------|
 | Phase 0 — Foundation | PASS | Lead | 2026-10-07 | 2026-10-07 | 1 passing + boot check | `docs/activityops/*`, workspaces build | none |
 | Phase 1 — Day-1 gate | BLOCKED | Ring + AI/AWS | | | | `evidence/day-1/` | Needs Ring Playground token + AWS account access (B-001, B-002) |
-| Phase 2 — Domain model | NOT_STARTED | Backend | | | | | Waits on Phase 1 verdict |
+| Phase 2 — Domain model | READY_FOR_REVIEW | Backend | 2026-10-07 | 2026-10-07 | 53 passing | `schema.sql`, `src/domain/*`, 3 suites | none |
 | Phase 3 — Ring evidence pipeline | NOT_STARTED | Ring | | | | | Waits on Phase 1 verdict |
 | Phase 4 — Core product UI | NOT_STARTED | Frontend | | | | | Waits on Phase 2/3 |
 | Phase 5 — AI operations agent | NOT_STARTED | AI/AWS | | | | | Waits on T9 Bedrock access |

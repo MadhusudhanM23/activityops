@@ -51,3 +51,32 @@ difference is recorded in `INTEGRATION_FINDINGS.md` rather than silently coded a
 The hackathon requires a public repo (spec sec. 31). CodeRabbit reviews each phase PR against the
 path instructions in `.coderabbit.yaml`. Until the remote exists, the Lead self-reviews against
 the same checklist and the gap is tracked as B-004.
+
+## D-010 — 2026-10-07 — Spec rules are enforced in the schema wherever a constraint can do it
+The one-to-one event claim is a UNIQUE index, the one-open-incident rule is a partial unique index,
+and attempt immutability is three triggers. Application code can be wrong; these cannot be bypassed
+by a future route, a seed script or a careless migration. Spec sec. 7, 8.8, 13.
+
+## D-011 — 2026-10-07 — verification_attempt carries armed_at, window_seconds and skew_seconds
+The sec. 23 field list omits them, but sec. 8.1-8.4 require an armed timestamp and a window.
+Snapshotting the window onto the attempt means a later configuration change cannot retroactively
+alter what counted as eligible for a historical attempt. Recorded as an additive extension to the
+spec data model, not a change to it.
+
+## D-012 — 2026-10-07 — Override is a new attempt with status OVERRIDDEN, not a mutation
+Sec. 13 requires that an override is never displayed as PASS and that dismissal cannot erase a FAIL.
+Writing the override as a superseding attempt satisfies both and keeps the original FAIL visible in
+the audit history.
+
+## D-013 — 2026-10-07 — Device status UNKNOWN is not UNAVAILABLE
+Only a confirmed UNAVAILABLE device may produce a BLOCKER (sec. 10 Case A). A device that has not
+been reported on — including because the Ring integration is down — must never create a coverage
+blocker, otherwise an integration failure becomes false negative evidence.
+
+## D-014 — 2026-10-07 — Delete All Data drops and rebuilds tables
+The anti-delete trigger that protects attempt history would otherwise block the sec. 16 delete
+operation. DROP TABLE does not fire row triggers, and wiping the store is an explicit operator act.
+
+## D-015 — 2026-10-07 — Vitest upgraded to v3
+Vitest 2 could not resolve the `node:sqlite` builtin and every domain test failed to load. Vitest 3
+(Vite 6) resolves it. An observed failure, not a preference.
