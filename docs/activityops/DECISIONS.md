@@ -109,3 +109,30 @@ Measured shape: entities under `data`, side-loaded objects under `included`, dev
 `relationships.source.data.id`, and `attributes.start`/`attributes.end` as epoch milliseconds.
 The schema's ISO-8601 `start_at`/`end_at` columns are unchanged; conversion happens in the adapter,
 which is exactly the normalization boundary spec sec. 16 and 34 require.
+
+## D-021 — 2026-10-07 — The Ring adapter is built to the MEASURED contract, not the documented one
+`src/ring/normalize.ts` parses the JSON:API envelope observed on Day-1: entities under `data`,
+status side-loaded under `included`, device binding at `relationships.source.data.id`, and
+`attributes.start`/`end` as epoch milliseconds converted to ISO at the boundary. A test feeds it an
+ISO string where epoch milliseconds are expected and asserts rejection, so the documented-shape
+mistake cannot creep back in.
+
+## D-022 — 2026-10-07 — Every provider response is schema-validated; a mismatch is an integration error
+Spec sec. 24 requires validating provider response schemas. A malformed response raises
+`MALFORMED_RESPONSE`, which sets the reconnect overlay and is explicitly NOT an empty result. The
+difference between "nothing happened" and "we could not tell" is the whole basis of sec. 10.
+
+## D-023 — 2026-10-07 — REQUEST_INVALID does not raise the reconnect overlay
+`RingError.setsReconnectOverlay` is false for a request bug of ours. Telling an operator to
+reconnect because we sent a malformed body would be a false statement about the integration.
+
+## D-024 — 2026-10-07 — The client refuses to follow a cross-origin links.next
+Following provider-supplied links blindly would let a malformed or hostile response redirect an
+authenticated request with the bearer token attached. `resolveUrl` rejects any origin other than the
+configured base.
+
+## D-025 — 2026-10-07 — A capped or aborted traversal is never coverage
+`coversWindow` requires BOTH the observation margin to have elapsed AND the traversal to have
+reached older records or the true end of the list. Stopping at the page cap or on a repeated URL
+yields `coversWindow: false`, so a missing session stays "not yet observed" rather than becoming
+negative evidence (sec. 9.4, 10 Case B).

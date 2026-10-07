@@ -63,3 +63,14 @@ Observed twice as a request-validation failure (`REQUEST_FORBIDDEN` for a missin
 status alone would show a judge "reconnect needed" when the connection is fine.
 **Mitigation:** the adapter classifies on `errors[].code` first and falls back to the status. This
 must be covered by a test in Phase 3.
+
+## R-004 — Provider pagination is implemented but unverified
+Day-1 T4 was inconclusive: the account holds one event, so no `links.next` traversal could be
+exercised. The algorithm is proven against synthetic multi-page fixtures (page cap, repeated-URL
+abort, stop-at-older, missing-`links` end-of-list, idempotent upsert).
+
+**These tests prove our algorithm, not Ring's behaviour, and must never be described otherwise.**
+
+**Mitigation:** the traversal is defensive by construction — bounded page count, repeated-URL abort,
+no assumption that `links` exists, and a capped traversal explicitly cannot produce coverage.
+**Retire by:** re-running T4 once the account holds enough events to span pages (depends on B-005).

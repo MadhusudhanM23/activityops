@@ -11,6 +11,12 @@
 | 2026-10-07 | 2 | incident lifecycle | `npm test` | 14 | 0 | One-open-incident, escalation, illegal transitions, dismissal deadlock, approval/cancel, audit trail |
 | 2026-10-07 | 2 | sync coverage gating | `npm test` | 8 | 0 | Case A vs Case B blockers through the database; UNKNOWN device and integration failure both proven non-blocking |
 | 2026-10-07 | 1 | Ring Playground T1-T8 | live API calls | 3 pass, 1 partial, 2 inconclusive/not-reproduced, 2 blocked | — | Real provider calls. Verdict `DAY-1 GATE: PARTIAL`. See `INTEGRATION_FINDINGS.md` |
+| 2026-10-07 | 3 | ring normalization | `npm test` | 14 | 0 | Measured JSON:API envelope, epoch-ms conversion, relationships.source binding, authoritative client-side filter |
+| 2026-10-07 | 3 | ring error classification | `npm test` | 15 | 0 | Both measured 403 codes map to REQUEST_INVALID; 401/429/5xx raise the overlay; no error is ever negative evidence |
+| 2026-10-07 | 3 | ring history sync | `npm test` | 14 | 0 | Traversal, repeated-URL abort, page cap, idempotent upsert, coverage both-conditions, real-payload end-to-end |
+
+**105 tests total, 0 failing.** Pagination traversal is proven against SYNTHETIC multi-page
+fixtures only — real provider pagination remains unverified (T4).
 
 Bedrock (T9) and Strands (T10) have not been executed — no AWS account access yet (B-002).
 Ring results are real observations; failures and inconclusive results are recorded as such.

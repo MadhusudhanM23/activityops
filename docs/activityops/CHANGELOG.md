@@ -46,3 +46,16 @@
   Caught by a post-redaction leakage check, which now runs over every committed artifact.
 - Committed three redacted captures; raw responses stay git-ignored.
 - Cut the snapshot thumbnail (D-017) on evidence.
+
+## 2026-10-07 — Phase 3 (Ring evidence pipeline)
+- Added `src/ring/normalize.ts`: JSON:API parsing built to the Day-1 measured contract, with zod
+  schema validation and epoch-millisecond to ISO conversion at the boundary.
+- Added `src/ring/errors.ts`: classification on `errors[].code` before HTTP status, encoding the
+  measured fact that `403` is returned for request-validation failures (D-018).
+- Added `src/ring/client.ts`: server-to-server client, token supplied per request and never stored,
+  logged or returned; cross-origin `links.next` refused.
+- Added `src/ring/sync.ts`: sec. 9.2 traversal with page cap, repeated-URL guard, stop-at-older,
+  idempotent upsert by opaque provider event id, and sec. 9.4 two-condition coverage.
+- Added fixtures derived from the real redacted capture, plus clearly-labelled synthetic multi-page
+  fixtures for pagination.
+- 43 new tests (105 total, 0 failing).
