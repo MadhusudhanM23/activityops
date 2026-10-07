@@ -59,3 +59,22 @@
 - Added fixtures derived from the real redacted capture, plus clearly-labelled synthetic multi-page
   fixtures for pagination.
 - 43 new tests (105 total, 0 failing).
+
+## 2026-10-07 — Phase 4 (core product UI)
+- API: run, check, attempt, incident, audit and Live Test connection routes, with zod validation and
+  an error mapper that never echoes request input (a pasted token cannot leak back out).
+- Workflow layer: FAIL opens/updates the single incident; recheck -> RECHECKING; recheck PASS ->
+  READY_TO_RESOLVE; RESOLVED only by a person. Auto-claim of the earliest eligible session.
+- Coverage incidents: a confirmed blocker raises one BLOCKER incident, idempotently.
+- Review Mode seed built through the real workflow from the Day-1 capture; immutable at the API.
+- React UI, mobile-first: dashboard, Live Test connect (password field, cleared on submit, never
+  stored), run detail with deterministic readiness explanation, Ring evidence card that always shows
+  what the evidence does not establish, attempt history, incident lifecycle, audit trail.
+- Frontend wording gate test; browser walkthroughs at 390px and 1280px; live end-to-end flow.
+
+### Corrections made during Phase 4
+- Phase 0 port diagnosis corrected (D-026, L-06).
+- Production build could not boot - schema.sql missing from dist (D-033, L-10).
+- Incident route lacked the recorded-run guard (D-031, L-16).
+- Five visual defects found by screenshot review and fixed (L-17).
+- Added `LESSONS_LEARNED.md` collecting every mistake so far for the final write-up.

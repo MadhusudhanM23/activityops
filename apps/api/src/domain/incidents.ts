@@ -179,6 +179,11 @@ export function transitionIncident(db: DatabaseSync, input: TransitionInput): In
   return getIncident(db, incident.id);
 }
 
+/** Legal next states, exposed so the UI renders only what the domain will accept. */
+export function allowedTransitions(status: IncidentStatus): readonly IncidentStatus[] {
+  return TRANSITIONS[status];
+}
+
 /** Severity for a failed check (sec. 13). */
 export function severityForFailure(required: boolean): IncidentSeverity {
   return required ? 'HIGH' : 'MEDIUM';

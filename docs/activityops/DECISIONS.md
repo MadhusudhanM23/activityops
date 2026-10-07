@@ -136,3 +136,46 @@ configured base.
 reached older records or the true end of the list. Stopping at the page cap or on a repeated URL
 yields `coversWindow: false`, so a missing session stays "not yet observed" rather than becoming
 negative evidence (sec. 9.4, 10 Case B).
+
+## D-026 — 2026-10-07 — CORRECTION: the Phase 0 bind failure was a port conflict, not 0.0.0.0
+Phase 0 recorded "binding 0.0.0.0 was denied" and made HOST configurable. In Phase 4 the same EACCES
+appeared on 127.0.0.1, disproving that. Root cause: a local Windows service (AgentService) holds port
+8080; Windows reports an exclusively-held port as EACCES rather than EADDRINUSE. The dev default port
+is now 8787; containers set PORT explicitly. Configurable HOST is kept - it is still correct for
+containers. See LESSONS_LEARNED L-06.
+
+## D-027 — 2026-10-07 — verification_run carries data_mode and capture_date
+Spec sec. 19 requires the seeded run never be presented as live data. A column (with a CHECK that a
+RECORDED_DEMO run has a capture date) makes every view label it honestly, rather than relying on a
+convention in free-text `scheduled_context`.
+
+## D-028 — 2026-10-07 — Auto-claim binds the EARLIEST eligible unclaimed session
+Deterministic, and leaves a later session in the same window available to another check on the same
+device. Every sec. 8 rule is still re-checked inside `claimEvidence`.
+
+## D-029 — 2026-10-07 — Attempts drive the incident to READY_TO_RESOLVE and stop there
+Starting a recheck moves an open incident to RECHECKING; a recheck PASS moves it to READY_TO_RESOLVE;
+a recheck FAIL sends it back to ACTION_REQUIRED. RESOLVED is only ever set by a named person - spec
+sec. 1 forbids turning a recheck into automatic resolution. These system steps are attributed to
+`system` in the lifecycle so the UI can show they were driven by an attempt.
+
+## D-030 — 2026-10-07 — Review Mode is generated through the real workflow, from the one real capture
+The seed calls the same workflow functions as live use, so the recorded run passes the same
+immutability triggers and evidence gate. Its Ring evidence is the single on_demand record captured on
+Day-1 (synthetic id). Only one real session exists, so the fail -> recheck story runs on a non-Ring
+check instead of inventing a second Ring session.
+
+## D-031 — 2026-10-07 — A recorded run is immutable at the API, not just in the UI
+Start, sync, decision, override, approve, cancel and incident transitions are all refused for a
+RECORDED_DEMO run server-side. Found when the incident route turned out to lack the guard (L-16).
+
+## D-032 — 2026-10-07 — The product has no mock Ring mode
+Browser end-to-end testing points the real API at a test-only fake Ring server in the scratchpad via
+`RING_API_BASE_URL`. Product code has no fake data path to accidentally ship or demo (spec sec. 34).
+
+## D-033 — 2026-10-07 — The API build ships schema.sql and the built artifact is boot-tested
+`tsc` does not copy non-TS files; `scripts/copy-assets.mjs` does. Found by booting `dist/` (L-10).
+
+## D-034 — 2026-10-07 — "Open Ring live view" URL is configuration
+The exact Playground live-view URL was not verified, so it is `VITE_RING_PLAYGROUND_URL`, defaulting
+to the official Ring developer portal rather than a guessed deep link.

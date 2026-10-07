@@ -62,7 +62,13 @@ CREATE TABLE IF NOT EXISTS verification_run (
   operator_id       TEXT,
   approval_actor_id TEXT,
   approved_at       TEXT,
-  cancelled_at      TEXT
+  cancelled_at      TEXT,
+  -- Sec. 19: a seeded run must never be presented as live Ring data. The mode is
+  -- a column, not a convention, so every view of the run can label it honestly.
+  data_mode         TEXT NOT NULL DEFAULT 'LIVE' CHECK (data_mode IN ('LIVE', 'RECORDED_DEMO')),
+  -- Date the underlying Ring Playground capture was taken. Required for a recorded run.
+  capture_date      TEXT,
+  CHECK (data_mode = 'LIVE' OR capture_date IS NOT NULL)
 );
 
 -- Immutable (sec. 7). A recheck INSERTs a new row pointing at the one it supersedes;

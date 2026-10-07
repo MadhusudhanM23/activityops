@@ -36,5 +36,7 @@ export const ERR = {
   RUN_TERMINAL: 'RUN_TERMINAL',
   /** Approval attempted while the run is not READY_TO_APPROVE. */
   RUN_NOT_APPROVABLE: 'RUN_NOT_APPROVABLE',
+  /** A supplied Ring token is already past its exp claim. */
+  RING_TOKEN_EXPIRED: 'RING_TOKEN_EXPIRED',
   NOT_FOUND: 'NOT_FOUND',
 } as const;

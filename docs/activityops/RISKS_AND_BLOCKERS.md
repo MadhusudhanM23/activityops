@@ -74,3 +74,13 @@ abort, stop-at-older, missing-`links` end-of-list, idempotent upsert).
 **Mitigation:** the traversal is defensive by construction — bounded page count, repeated-URL abort,
 no assumption that `links` exists, and a capped traversal explicitly cannot produce coverage.
 **Retire by:** re-running T4 once the account holds enough events to span pages (depends on B-005).
+
+## R-005 — HIGH — The API has no authentication yet
+Every route currently acts as a single demo identity. That is acceptable on a developer machine and
+unacceptable on a public URL: anyone could attest, approve, or connect a token.
+**Must be closed in Phase 6 before any deployment** (session cookie, CSRF, rate limiting on Ring sync
+and connect, spec sec. 24).
+
+## R-006 — The Playground live-view deep link is unverified
+"Open Ring live view" links to the Ring developer portal by default (D-034). Confirm the real
+Playground URL during the next live session and set `VITE_RING_PLAYGROUND_URL`.

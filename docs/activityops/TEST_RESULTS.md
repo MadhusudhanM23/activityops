@@ -17,6 +17,14 @@
 
 **105 tests total, 0 failing.** Pagination traversal is proven against SYNTHETIC multi-page
 fixtures only — real provider pagination remains unverified (T4).
+| 2026-10-07 | 4 | HTTP routes | `npm test` | 21 | 0 | Review Mode, Live Test connect, token never echoed/persisted, full fail->recheck->resolve->approve, sync failure isolation, recorded-run immutability |
+| 2026-10-07 | 4 | frontend wording gate | `npm test` | 9 | 0 | Scans apps/web/src for forbidden claims and browser-storage use; self-tests prove the scanner catches real use |
+| 2026-10-07 | 4 | browser: Review Mode | Edge headless, 390px + 1280px | 6 shots | 0 | No horizontal overflow at either width; 5 visual defects found and fixed (see LESSONS_LEARNED L-17) |
+| 2026-10-07 | 4 | browser: live end-to-end | Edge headless, test-only fake Ring server | 1 flow | 0 | NOT_STARTED -> PASS locked -> unlocked after sync -> FAIL -> recheck -> READY_TO_APPROVE -> READY. 0 console errors, 0 media calls, token absent from API log |
+| 2026-10-07 | 4 | built-artifact boot | `node dist/server.js` | 1 | 0 | Initially FAILED: schema.sql missing from dist (L-10). Fixed; built server boots, seeds and serves Review Mode |
+
+**135 automated tests, 0 failing**, plus browser walkthroughs. The browser live flow uses a
+test-only fake Ring server that serves the measured Day-1 shapes; it is not provider evidence.
 
 Bedrock (T9) and Strands (T10) have not been executed — no AWS account access yet (B-002).
 Ring results are real observations; failures and inconclusive results are recorded as such.

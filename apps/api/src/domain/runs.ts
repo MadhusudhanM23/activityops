@@ -131,7 +131,7 @@ export function readiness(db: DatabaseSync, runId: string, now: Date = new Date(
  * the MVP has a single login and must not imply two-person control.
  */
 export function approveRun(db: DatabaseSync, runId: string, approver: string, now: Date): void {
-  const result = readiness(db, runId);
+  const result = readiness(db, runId, now);
   if (result.status !== 'READY_TO_APPROVE') {
     throw new DomainError(
       ERR.RUN_NOT_APPROVABLE,
