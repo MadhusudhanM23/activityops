@@ -8,6 +8,7 @@ import { z } from 'zod';
 const schema = z.object({
   NODE_ENV: z.string().default('development'),
   PORT: z.coerce.number().default(8080),
+  HOST: z.string().default('127.0.0.1'),
   DATABASE_PATH: z.string().default('./data/activityops.sqlite'),
   CLOCK_SKEW_ALLOWANCE_SECONDS: z.coerce.number().default(30),
   SESSION_WINDOW_SECONDS: z.coerce.number().default(600),
