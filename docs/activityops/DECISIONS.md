@@ -35,3 +35,19 @@ real account before any agent code is written.
 `.coderabbit.yaml` encodes the evidence-honesty and state-machine rules as review instructions so
 spec drift is caught at review time rather than at demo time. `request_changes_workflow: true`.
 Requires a GitHub remote to take effect (B-004).
+
+## D-007 — 2026-10-07 — T1-T8 are run by the user; no Ring token enters the agent session
+Keeps the 30-minute Playground token out of this conversation and out of any transcript. The agent
+supplies the runbook, the curl templates and a redaction script; the user supplies real observations.
+Spec sec. 19/24 (tokens server-side only, never logged).
+
+## D-008 — 2026-10-07 — Ring endpoint paths are documentation-derived until T2/T3 confirm them
+Paths were read from the official Ring Partner API documentation on 2026-10-07 and recorded in
+`DAY1_RUNBOOK.md`, marked as unvalidated. Observed behaviour overrides documentation, and any
+difference is recorded in `INTEGRATION_FINDINGS.md` rather than silently coded around
+(spec sec. 34: do not invent Ring behaviour).
+
+## D-009 — 2026-10-07 — Public GitHub repository with CodeRabbit as the review gate
+The hackathon requires a public repo (spec sec. 31). CodeRabbit reviews each phase PR against the
+path instructions in `.coderabbit.yaml`. Until the remote exists, the Lead self-reviews against
+the same checklist and the gap is tracked as B-004.

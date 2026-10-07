@@ -17,11 +17,12 @@ Unverified observations may create test cases, never product truth (spec sec. 0B
 | T6 | Does a snapshot/media request create an `on_demand` record? | NOT_RUN |
 | T7 | Snapshot retrieval: status, redirect, content type, image validity | NOT_RUN |
 | T8 | Live-view flow, external-tab usability, WHEP behaviour | NOT_RUN |
-| T9 | Bedrock: region, model id, invocation, FTU, Marketplace/IAM, quota | NOT_RUN |
-| T10 | Strands custom read-only tool (`getVerificationRun`) | NOT_RUN |
+| T9 | Bedrock: region, model id, invocation, FTU, Marketplace/IAM, quota | BLOCKED (B-002) |
+| T10 | Strands custom read-only tool (`getVerificationRun`) | BLOCKED (B-002) |
 
 ## Gate verdict
 
 `DAY-1 GATE: NOT_RUN`
 
+Procedure ready: see `DAY1_RUNBOOK.md`. T1-T8 await a Playground session; T9/T10 await AWS access.
 Blocked on credentials — see `RISKS_AND_BLOCKERS.md` (B-001, B-002).
