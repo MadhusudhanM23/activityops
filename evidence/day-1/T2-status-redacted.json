@@ -1,0 +1,20 @@
+{
+  "data": {
+    "type": "device-status",
+    "id": "id_f91ea5a9",
+    "attributes": {
+      "audio": {
+        "snooze": {
+          "active": null,
+          "until": null
+        }
+      },
+      "online": false,
+      "reported_at": "2026-10-07T11:19:11Z",
+      "state": null
+    }
+  },
+  "meta": {
+    "time": "2026-10-07T11:20:42Z"
+  }
+}

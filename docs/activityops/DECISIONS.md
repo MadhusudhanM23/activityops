@@ -80,3 +80,32 @@ operation. DROP TABLE does not fire row triggers, and wiping the store is an exp
 ## D-015 — 2026-10-07 — Vitest upgraded to v3
 Vitest 2 could not resolve the `node:sqlite` builtin and every domain test failed to load. Vitest 3
 (Vite 6) resolves it. An observed failure, not a preference.
+
+## D-016 — 2026-10-07 — The user supplied the Playground token directly, superseding D-007
+D-007 planned for the user to run T1-T8 and paste results. The user chose to paste the token instead.
+Handling: the token was held in an environment variable for the duration of the run, never written to
+a file, a log, a commit or an evidence artifact, and the raw captures live in the git-ignored
+`evidence/day-1/raw/`. Only redacted payloads are committed.
+
+## D-017 — 2026-10-07 — Snapshot/media thumbnail is CUT
+T7 returned no image: `403` twice on body validation, then `416 MEDIA_NOT_FOUND` on a well-formed
+request, because the device is offline. This is Cut 1 in the spec sec. 26 cut order, taken early on
+evidence rather than late under schedule pressure.
+
+## D-018 — 2026-10-07 — Error classification reads the provider error code, not the HTTP status
+Spec sec. 10 lists "403 authorization issue requiring re-link" as a reconnect condition. T7 shows
+`403` is also returned for request-validation failures. The adapter therefore classifies on
+`errors[].code` and treats the status as a fallback. **This is a refinement of sec. 10 driven by
+measured behaviour** and is logged here as the versioned correction the spec requires.
+
+## D-019 — 2026-10-07 — Timing configuration stays at its unmeasured defaults
+Sec. 8.2 permits reducing the skew allowance to 15 s only on measured evidence. T5 could not be run,
+so `CLOCK_SKEW_ALLOWANCE_SECONDS` stays 30 and `POST_WINDOW_OBSERVATION_MARGIN_SECONDS` stays 60,
+both explicitly marked unmeasured. The sub-second HTTP `Date` offset observed is diagnostic only and
+is not evidence about provider event timestamps.
+
+## D-020 — 2026-10-07 — The adapter normalizes a JSON:API envelope with epoch-millisecond timestamps
+Measured shape: entities under `data`, side-loaded objects under `included`, device binding at
+`relationships.source.data.id`, and `attributes.start`/`attributes.end` as epoch milliseconds.
+The schema's ISO-8601 `start_at`/`end_at` columns are unchanged; conversion happens in the adapter,
+which is exactly the normalization boundary spec sec. 16 and 34 require.

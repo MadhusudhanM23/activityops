@@ -10,6 +10,7 @@
 | 2026-10-07 | 2 | readiness precedence | `npm test` | 20 | 0 | All six precedence rules, integration overlay vs coverage, blocking severities, forbidden-wording assertion |
 | 2026-10-07 | 2 | incident lifecycle | `npm test` | 14 | 0 | One-open-incident, escalation, illegal transitions, dismissal deadlock, approval/cancel, audit trail |
 | 2026-10-07 | 2 | sync coverage gating | `npm test` | 8 | 0 | Case A vs Case B blockers through the database; UNKNOWN device and integration failure both proven non-blocking |
+| 2026-10-07 | 1 | Ring Playground T1-T8 | live API calls | 3 pass, 1 partial, 2 inconclusive/not-reproduced, 2 blocked | — | Real provider calls. Verdict `DAY-1 GATE: PARTIAL`. See `INTEGRATION_FINDINGS.md` |
 
-No Ring or Bedrock tests have been executed yet. Phase 1 records real results — including failures
-— in `INTEGRATION_FINDINGS.md`.
+Bedrock (T9) and Strands (T10) have not been executed — no AWS account access yet (B-002).
+Ring results are real observations; failures and inconclusive results are recorded as such.

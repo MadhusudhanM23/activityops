@@ -34,3 +34,15 @@
 - Added the incident lifecycle with a legal-transition table, severity escalation and action trail.
 - Added run approval/cancellation and the Ring integration-state overlay.
 - 53 new tests (54 total) covering every state transition and both evidence-honesty boundaries.
+
+## 2026-10-07 — Phase 1 (Day-1 validation gate) — verdict PARTIAL
+- Ran T1-T8 against the live Ring Playground API. Recorded every result, including the failures and
+  the one correlation that did not reproduce.
+- **T3 is the headline:** the server-side `event_types` filter is ignored — `event_types=motion`
+  returns an `on_demand` record. Client-side filtering is now a measured necessity.
+- Measured the real payload shape (JSON:API, epoch-millisecond timestamps) and the real error
+  envelope, replacing the assumptions taken from the documentation landing page.
+- Fixed a gap in `scripts/redact.mjs`: provider ids embedded in link URLs were surviving redaction.
+  Caught by a post-redaction leakage check, which now runs over every committed artifact.
+- Committed three redacted captures; raw responses stay git-ignored.
+- Cut the snapshot thumbnail (D-017) on evidence.

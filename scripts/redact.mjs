@@ -85,6 +85,10 @@ function walk(node, keyName = '') {
     let v = redactUrl(node);
     // A JWT-shaped string anywhere in the payload is treated as a secret.
     v = v.replace(/\beyJ[\w-]+\.[\w-]+\.[\w-]+/g, 'REDACTED_JWT');
+    // Provider opaque identifiers also appear inside link URLs, where no key name
+    // gives them away. Alias them wherever they occur so related records stay
+    // linkable without exposing the real device/event ids.
+    v = v.replace(/\bava\d+\.ring\.[a-z.]*[A-Z0-9]{16,}/g, (match) => alias('provider', match));
     return v;
   }
 

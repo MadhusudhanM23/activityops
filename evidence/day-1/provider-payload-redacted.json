@@ -1,0 +1,28 @@
+{
+  "data": [
+    {
+      "type": "history-events",
+      "id": "id_7ca092eb",
+      "attributes": {
+        "end": 1791372885600,
+        "is_third_party_reviewed": true,
+        "start": 1791372135600,
+        "event_type": "on_demand"
+      },
+      "relationships": {
+        "cv_detections": {
+          "data": []
+        },
+        "source": {
+          "data": {
+            "type": "devices",
+            "id": "id_d7af0742"
+          }
+        }
+      },
+      "meta": {
+        "riid": null
+      }
+    }
+  ]
+}
