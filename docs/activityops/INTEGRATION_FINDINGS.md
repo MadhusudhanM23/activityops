@@ -32,7 +32,8 @@ observations create test cases, never product truth (spec sec. 0B).
 1. Ring Partner API authentication, device discovery and Event History all work with a Playground
    one-click token. The integration is real.
 2. The payload format is **JSON:API** (`data` / `included` / `relationships` / `meta`), not the flat
-   shape the documentation landing page implied. Event timestamps are **epoch milliseconds**
+   shape we had assumed (the documentation landing page lists paths, not response envelopes). Event
+   timestamps are **epoch milliseconds**
    (`attributes.start`, `attributes.end`); the device binding is at `relationships.source.data.id`.
 3. **The `event_types` server-side filter is ignored in Playground.** Open question B.1 from spec
    sec. 0B is answered. Client-side filtering is a measured necessity, not a precaution.

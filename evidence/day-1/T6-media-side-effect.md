@@ -34,7 +34,8 @@ Baseline recorded first (1 event). Then
 The correlation did not survive a controlled repeat, so the trial-1 timing is **not** evidence that
 a media request creates an `on_demand` record. More likely explanations, none of them tested:
 the Playground seeds a session record shortly after a token session begins, or the record was
-produced by activity unrelated to our call.
+produced by activity unrelated to our call - including possible activity in the Playground UI,
+which was open in a browser during the test window.
 
 Worth noting about that record: `start = 11:22:15` and `end = 11:34:45` - a 750-second span whose
 end lay ~11 minutes in the **future** at the moment it was first observed. A record can therefore be

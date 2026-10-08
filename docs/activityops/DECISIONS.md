@@ -110,12 +110,16 @@ Measured shape: entities under `data`, side-loaded objects under `included`, dev
 The schema's ISO-8601 `start_at`/`end_at` columns are unchanged; conversion happens in the adapter,
 which is exactly the normalization boundary spec sec. 16 and 34 require.
 
-## D-021 — 2026-10-07 — The Ring adapter is built to the MEASURED contract, not the documented one
+## D-021 — 2026-10-07 — The Ring adapter is built to the MEASURED contract, not an assumed one
 `src/ring/normalize.ts` parses the JSON:API envelope observed on Day-1: entities under `data`,
 status side-loaded under `included`, device binding at `relationships.source.data.id`, and
 `attributes.start`/`end` as epoch milliseconds converted to ISO at the boundary. A test feeds it an
-ISO string where epoch milliseconds are expected and asserts rejection, so the documented-shape
+ISO string where epoch milliseconds are expected and asserts rejection, so the assumed-shape
 mistake cannot creep back in.
+
+*Correction (2026-10-08):* earlier wording here and elsewhere said the documentation "implied" a
+flat shape. It did not: the landing page lists endpoint paths and does not describe response
+envelopes at all. The flat shape was our own assumption. See LESSONS_LEARNED L-01.
 
 ## D-022 — 2026-10-07 — Every provider response is schema-validated; a mismatch is an integration error
 Spec sec. 24 requires validating provider response schemas. A malformed response raises

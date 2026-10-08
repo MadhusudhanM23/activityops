@@ -11,10 +11,15 @@ that existed for a different reason, which is the argument for building those ch
 
 ## Integration and provider behaviour
 
-### L-01 — The documented API shape was wrong in three places (Phase 1)
-- **What happened:** the documentation landing page implied a flat device/event shape. The real API
-  returns JSON:API (`data`/`included`/`relationships`), event times as **epoch milliseconds**, and the
-  device binding at `relationships.source.data.id`.
+### L-01 — Our assumed API shape was wrong in three places (Phase 1)
+- **What happened:** we assumed a flat device/event shape. The real API returns JSON:API
+  (`data`/`included`/`relationships`), event times as **epoch milliseconds**, and the device binding
+  at `relationships.source.data.id`.
+- **Correction (2026-10-08):** this entry first said the documentation landing page "implied" the
+  flat shape, and that phrasing spread to five other files. Re-checking before writing the public
+  friction log showed the page lists endpoint paths only and says nothing about response envelopes.
+  The assumption was ours. All six places were corrected; the friction log reports the real gap
+  (envelope not documented on that page), not a contradiction that did not exist.
 - **Caught by:** the Day-1 validation gate — calling the real API before writing the adapter.
 - **Fix:** adapter built to the measured contract; a test rejects ISO strings where epoch ms belong.
 - **Lesson:** validate the provider before building against it. A day spent measuring saved a rewrite

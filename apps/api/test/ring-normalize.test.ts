@@ -71,8 +71,8 @@ describe('history normalization', () => {
   });
 
   it('rejects an ISO timestamp where epoch milliseconds are expected', () => {
-    // Guards the exact mistake the Day-1 gate prevented: coding to the
-    // documented shape instead of the measured one.
+    // Guards the exact mistake the Day-1 gate prevented: coding to an
+    // assumed shape instead of the measured one.
     const wrong = { data: [{ ...syntheticEvent({ id: 'e1', startMs: 0 }), attributes: { event_type: 'on_demand', start: '2026-10-07T11:22:15Z' } }] };
     expect(() => normalizeHistoryPage(wrong)).toThrowError(RingError);
   });

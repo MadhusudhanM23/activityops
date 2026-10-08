@@ -41,7 +41,8 @@
 - **T3 is the headline:** the server-side `event_types` filter is ignored — `event_types=motion`
   returns an `on_demand` record. Client-side filtering is now a measured necessity.
 - Measured the real payload shape (JSON:API, epoch-millisecond timestamps) and the real error
-  envelope, replacing the assumptions taken from the documentation landing page.
+  envelope, replacing our own assumptions (the documentation landing page lists paths, not
+  response envelopes - wording corrected 2026-10-08, see L-01).
 - Fixed a gap in `scripts/redact.mjs`: provider ids embedded in link URLs were surviving redaction.
   Caught by a post-redaction leakage check, which now runs over every committed artifact.
 - Committed three redacted captures; raw responses stay git-ignored.

@@ -18,7 +18,8 @@ Ring Developer Playground, one-click OAuth token, scopes `ava.v1:read`.
 ## Result
 `200`, 5769 bytes, 1748 ms. **Device count: 1** - "Playground Device".
 
-The response is **JSON:API**, not the flat object shape assumed from the documentation landing page:
+The response is **JSON:API**, not the flat object shape we had assumed (the documentation landing
+page lists endpoint paths but does not describe response envelopes):
 
 ```
 { data: [ { type: "devices", id: "<113-char opaque id>",

@@ -3,7 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "description": "ActivityOps - operator-facing business-site verification system (Amazon Developer Hackathon 2026, Ring track)",
-  "workspaces": ["apps/api", "apps/web"],
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
   "scripts": {
     "dev:api": "npm run dev --workspace apps/api",
     "dev:web": "npm run dev --workspace apps/web",
@@ -11,5 +14,7 @@
     "test": "npm run test --workspace apps/api",
     "typecheck": "npm run typecheck --workspace apps/api && npm run typecheck --workspace apps/web"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=24"
+  }
 }

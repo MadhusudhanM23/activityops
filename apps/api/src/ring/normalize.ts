@@ -5,7 +5,8 @@ import { RingError } from './errors.js';
  * JSON:API normalization for the Ring Partner API.
  *
  * The shape here is the one MEASURED on 2026-10-07 (Day-1 T2/T3), not the flat
- * shape the documentation landing page implied:
+ * shape we had assumed (the documentation landing page lists paths, not
+ * response envelopes):
  *
  *   { data: [ { type, id, attributes, relationships } ],
  *     included: [ ... ], meta: { time } }
