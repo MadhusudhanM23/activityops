@@ -33,6 +33,7 @@
 | 2026-10-08 | 6 | container: browser under production CSP | headless Edge against the container | 11 checks | 0 | **0 CSP violations**, 0 console errors; sign-in, notice gate, Delete All Data, demo restored, sign-out |
 | 2026-10-08 | 6 | container: persistence | `docker restart` | 1 | 0 | Deletion record survives restart, seed does not re-run, WAL mode on the volume |
 | 2026-10-08 | 6 | container: data-dir ownership | root-owned bind mount, then `chown 1000:1000` | 2 | 0 | Root-owned → exits `unable to open database file`; chowned → healthy, HTTP 200, Docker HEALTHCHECK healthy. First attempt used a named volume and was invalid (L-22) |
+| 2026-10-08 | 7 | fresh-clone quickstart | `git clone` → `npm install` → `npm test` → `npm run dev:api` / `dev:web` | 5 | 0 | Install, 183 tests, API, Review Mode via proxy, dev login all work. **README URL `127.0.0.1:5173` failed** — Vite listens on IPv6; fixed to `localhost` (L-27) |
 
 ## Totals
 

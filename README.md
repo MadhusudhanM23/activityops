@@ -175,11 +175,11 @@ version this has been tested on (CI and the container image use it too).
 ```bash
 npm install
 npm run dev:api        # API on http://127.0.0.1:8787, seeds the recorded demo run
-npm run dev:web        # UI on http://127.0.0.1:5173
+npm run dev:web        # UI on http://localhost:5173
 ```
 
-Open <http://127.0.0.1:5173>. Review Mode works immediately; sign in with the local credentials above
-for Live Test.
+Open <http://localhost:5173> — use `localhost`, not `127.0.0.1`: the Vite dev server may listen on
+IPv6 only. Review Mode works immediately; sign in with the local credentials above for Live Test.
 
 ```bash
 npm test               # 183 tests

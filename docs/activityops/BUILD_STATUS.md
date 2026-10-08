@@ -16,4 +16,4 @@ never because code was written.
 | Phase 5 — AI operations agent | BLOCKED | AI/AWS | | | | | No AWS account / Bedrock access (B-002) |
 | Phase 6a — Security, privacy, container | PASS | QA/DevOps | 2026-10-07 | 2026-10-08 | 183 passing; 6/6 mutations caught; container + browser checks | `src/security/*`, `src/http/security.ts`, `Dockerfile`, `docker-compose.yml`, `deploy/` | none |
 | Phase 6b — EC2 + EBS deployment | BLOCKED | QA/DevOps | 2026-10-08 | | Runbook steps verified in local Docker | `deploy/README.md` | No AWS account (B-002) |
-| Phase 7 — Judge experience | NOT_STARTED | Lead | | | | | Review Mode already built (Phase 4); README + judge test remain |
+| Phase 7 — Judge experience | IN_PROGRESS | Lead | 2026-10-08 | | Fresh-clone quickstart verified | `README.md`, `FRICTION_LOG.md`, `PRODUCT_FEEDBACK.md`, `DEMO_SCRIPT.md`, `ORGANIZER_QUESTIONS.md` | No hosted URL (B-002); no push (B-004); AI handover absent from Review Mode (B-002); forum questions unposted (B-003, B-005) |

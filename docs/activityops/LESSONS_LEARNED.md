@@ -225,3 +225,28 @@ dependencies present.
 ### L-26 — Record counts written from memory were wrong
 Two per-suite test counts typed into TEST_RESULTS from memory were off by one. Recounted from the
 runner's JSON report and corrected. Numbers in records come from tools, not recollection.
+
+---
+
+## Phase 7
+
+### L-27 — My own test setup hid the bug a judge would hit first
+- **What happened:** the README told readers to open `http://127.0.0.1:5173`. Following it literally
+  from a fresh clone, the page refused to connect: `npm run dev:web` starts Vite on `localhost`,
+  which on this machine binds IPv6 `::1` only.
+- **Why earlier testing missed it:** every browser test in Phases 4 and 6 started Vite with
+  `--host 127.0.0.1` explicitly — a flag the README never mentions.
+- **Caught by:** cloning the repository into an empty directory and following the README word for
+  word, instead of re-using the development setup.
+- **Fix:** README now uses `localhost` and says why.
+- **Lesson:** test documentation the way its reader will run it — from a clean clone, with only the
+  commands written down.
+
+### L-28 — Re-reading my own claims before publishing them
+Writing the public friction log forced a re-check of three statements that had been repeated
+internally for a day: that the Ring docs "implied" a flat shape (they did not — L-01), that no live
+view was started before the unexplained `on_demand` record (true of the harness, not provably true of
+the Playground UI that was open), and that live view was "used" (never exercised). All three were
+corrected before anything was published.
+- **Lesson:** a claim becomes more dangerous the more often it is repeated, because repetition feels
+  like verification. Re-derive anything that is about to leave the team.

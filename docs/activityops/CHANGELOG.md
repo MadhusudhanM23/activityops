@@ -102,3 +102,17 @@
 - `GET /api/privacy` was not public although the notice must be readable before sign-in.
 - First ownership simulation invalid (named volume); redone with a bind mount (L-22).
 - `TEST_RESULTS.md` table broken by an earlier update and two counts wrong; rewritten (L-26).
+
+## 2026-10-08 — Phase 7 (judge experience) — IN_PROGRESS
+- README rewritten for judges: problem, evidence semantics, "Judge Test — 5 Minutes", demo
+  credentials, architecture diagram, technology table with honest status, privacy, security, known
+  limitations, local and container quickstart.
+- FRICTION_LOG.md (7 entries) and PRODUCT_FEEDBACK.md, from real observations only.
+- ORGANIZER_QUESTIONS.md: four forum questions ready to post (B-003, B-005, F-01, F-06).
+- DEMO_SCRIPT.md: the sec. 20 script with a fallback for every segment that depends on a blocker.
+- Quickstart verified from a fresh clone.
+
+### Corrections made during Phase 7
+- "Docs implied a flat shape" corrected in six files (L-01, L-28).
+- README claimed live view was used and Node 22.5+ support; both corrected; `engines` set to Node 24.
+- README dev URL fixed from `127.0.0.1` to `localhost` (L-27).
