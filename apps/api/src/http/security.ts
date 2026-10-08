@@ -28,7 +28,13 @@ const PUBLIC = new Set([
  * Review Mode reads, named by their REGISTERED route pattern. Handlers still
  * allow anonymous access to the recorded run only.
  */
-const PUBLIC_READ = new Set(['/api/runs', '/api/runs/:runId', '/api/runs/:runId/audit', '/api/runs/:runId/readiness']);
+const PUBLIC_READ = new Set([
+  '/api/runs',
+  '/api/runs/:runId',
+  '/api/runs/:runId/audit',
+  '/api/runs/:runId/readiness',
+  '/api/runs/:runId/ai',
+]);
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 

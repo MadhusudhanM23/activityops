@@ -53,7 +53,9 @@ attestation is the business decision. ActivityOps never says "person detected", 
    ACTION_REQUIRED → RECHECKING → READY_TO_RESOLVE → RESOLVED. Steps driven by an attempt are
    attributed to *system*; resolution was approved by a person.
 6. **Notice the override** on *Previous shift notes*: shown as **OVERRIDDEN**, never as a PASS.
-7. **AI handover note** — *not yet available* (see Known limitations).
+7. **Read the readiness panel's "What should I do next?"** — configured actions computed
+   deterministically, no AI involved. (AI-drafted handover notes are not available yet — see Known
+   limitations.)
 8. **View the audit trail** at the bottom of the run.
 9. *Optional, Live Test:* **Sign in** (credentials below), tick the data-practices notice, paste a
    fresh **Ring Developer Playground** OAuth token, and connect. ActivityOps discovers however many
@@ -114,7 +116,7 @@ flowchart LR
 | Ring media / snapshot APIs | — | **Deliberately never called** by the readiness workflow |
 | Amazon EC2 + encrypted Amazon EBS + Docker Compose + Caddy | Hosting; SQLite on a persistent encrypted volume | Container stack built and verified locally; **not yet deployed** |
 | IAM instance role, AWS Secrets Manager | No long-lived keys on the host; password from Secrets Manager | Runbook and script written; **not yet deployed** |
-| Amazon Bedrock, Strands Agents | Read-only operations copilot (handover notes, explanations) | **Not yet built** — awaiting model access |
+| Amazon Bedrock, Strands Agents | Read-only operations copilot drafting handover notes and incident summaries | **Model not yet connected** — awaiting access. The tool layer, injection defences and agent loop are built and tested against a scripted model |
 | Amazon CloudWatch | Log shipping | Logs proven free of secrets; not yet connected |
 
 ## Privacy and data handling
@@ -152,8 +154,13 @@ Stated plainly, so nothing here is mistaken for something it is not:
 
 - **Not yet hosted.** The deployment is designed and verified in local Docker, but no AWS account was
   available during the build, so there is no public URL yet.
-- **No AI assistant yet.** The Bedrock / Strands handover copilot (Phase 5) is waiting on model
-  access. Review Mode therefore has no AI handover artifact.
+- **No AI-generated notes yet.** No Amazon Bedrock model is connected — model access was not
+  available. Everything around the model is built and tested: ten read-only tools scoped to one run,
+  untrusted-text handling, a bounded agent loop, and an output check that withholds any draft
+  claiming detection or a clear or safe site. Of the four copilot requests, *Why are we not ready?*
+  and *What should I do next?* work today because the spec requires them to be deterministic;
+  *handover note* and *incident summary* return "not enabled" until a model is connected. Review
+  Mode therefore has no AI handover artifact.
 - **The Playground device was offline** throughout testing, so no fresh live-view session could be
   generated. The recorded run uses the one real session record that was captured.
 - **Unmeasured timing.** Provider indexing delay could not be measured, so the post-window wait
@@ -182,7 +189,7 @@ Open <http://localhost:5173> — use `localhost`, not `127.0.0.1`: the Vite dev 
 IPv6 only. Review Mode works immediately; sign in with the local credentials above for Live Test.
 
 ```bash
-npm test               # 183 tests
+npm test               # 209 tests
 npm run typecheck
 node scripts/scan-secrets.mjs --history
 ```

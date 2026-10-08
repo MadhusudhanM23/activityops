@@ -238,3 +238,37 @@ full history, and prints locations only. Proven with a positive control before b
 ## D-045 — 2026-10-08 — Phase 6 split into 6a (PASS) and 6b deployment (BLOCKED)
 Security, privacy and the container are complete and verified. Nothing has been deployed to AWS, so
 marking the whole phase PASS would misstate it.
+
+## D-046 — 2026-10-08 — Build the model-agnostic half of Phase 5 before model access
+The brief says to wire Strands and Bedrock only after access is confirmed, and that rule stands. The
+read-only tools, injection defences, agent loop and deterministic answers do not depend on any
+model, and the spec's fallback path uses "the same tool contracts". Building them now leaves only a
+thin adapter for when access arrives. `ModelClient` mirrors the Bedrock Converse message shape.
+
+## D-047 — 2026-10-08 — Users choose from fixed copilot tasks; there is no free-text prompt
+The spec lists four supported prompts. Offering exactly those, as an enum, removes the direct
+prompt-injection surface entirely. Indirect injection (via operator-typed data) is handled by D-048
+and the output guard.
+
+## D-048 — 2026-10-08 — Tools are read-only, allowlisted, and scoped to one run
+No tool can change state, so even a fully obeyed injection cannot act. Each request's tools can see
+only the run being asked about. Operator-typed strings come back as `{untrusted: true, text}`,
+sanitised of control, zero-width and bidi-override characters and bounded at 300 characters.
+
+## D-049 — 2026-10-08 — An output guard withholds drafts the evidence cannot support
+A draft claiming a person or motion was detected, or that an area or site was clear, safe or secure,
+is withheld and never saved. Conservative by design: it may also catch a negated phrasing, which the
+system prompt already forbids.
+
+## D-050 — 2026-10-08 — "Why are we not ready?" and "What should I do next?" never use a model
+Spec sec. 17 requires both to be deterministic. They come from the readiness engine and a fixed
+reason-to-action mapping, work with no model configured, and are labelled "no AI involved".
+
+## D-051 — 2026-10-08 — The privacy notice follows whether a model actually runs
+Keyed on the presence of a working model client, not on `BEDROCK_MODEL_ID` being set, so a
+configured id without a working client cannot make the notice claim that data goes to Bedrock.
+
+## D-052 — 2026-10-08 — Only completed notes are saved; prompts never are
+Withheld or incomplete drafts are discarded. A saved note keeps its text, model id, requester and
+tool trace (names, times, result summaries) - never the system prompt, the instruction, or model
+reasoning. Covered by Delete All Data.

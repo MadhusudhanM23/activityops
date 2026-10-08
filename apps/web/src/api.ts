@@ -1,4 +1,6 @@
 import type {
+  AiAnswer,
+  AiNote,
   AuditEntry,
   Meta,
   PrivacyNotice,
@@ -119,6 +121,10 @@ export const api = {
       { token, noticeAcknowledged: true },
     ),
   ringDisconnect: () => request<RingStatus>('POST', '/api/ring/disconnect'),
+
+  aiNotes: (runId: string) => request<AiNote[]>('GET', `/api/runs/${encodeURIComponent(runId)}/ai`),
+  ask: (runId: string, task: 'WHY_NOT_READY' | 'NEXT_ACTIONS' | 'HANDOVER' | 'INCIDENT_SUMMARY', incidentId?: string) =>
+    request<AiAnswer>('POST', '/api/ai/ask', { runId, task, incidentId }),
 
   deleteAll: (confirm: string) =>
     request<{ deleted: boolean; ringDisconnected: boolean; recordedDemoRestored: boolean; deletedAt: string }>(

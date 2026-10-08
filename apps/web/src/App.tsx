@@ -65,6 +65,7 @@ export function App() {
       <RunDetail
         key={`${runMatch[1]}-${epoch}`}
         runId={decodeURIComponent(runMatch[1])}
+        signedIn={signedIn}
         onBack={() => navigate('/')}
         onSignIn={() => navigate('/signin')}
       />

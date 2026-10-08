@@ -116,3 +116,13 @@
 - "Docs implied a flat shape" corrected in six files (L-01, L-28).
 - README claimed live view was used and Node 22.5+ support; both corrected; `engines` set to Node 24.
 - README dev URL fixed from `127.0.0.1` to `localhost` (L-27).
+
+## 2026-10-08 — Phase 5 (AI operations agent) — IN_PROGRESS: model-agnostic foundation
+- Ten read-only tools scoped to one run, with operator text wrapped as untrusted data.
+- Agent loop against a `ModelClient` interface shaped like Bedrock Converse; bounded at 8 steps;
+  output guard withholding unsupportable claims; tool trace without model reasoning.
+- `POST /api/ai/ask` with four fixed tasks: two deterministic (working now), two needing a model
+  (honest 503 until connected). Saved notes readable like their run; rate limited.
+- Run view carries deterministic "What should I do next?" actions; copilot panel in the UI.
+- 26 new tests (209 total); 6/6 AI mutations caught.
+- Not done, blocked on AWS access: Bedrock adapter, Strands, T9, T10.

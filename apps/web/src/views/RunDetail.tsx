@@ -13,6 +13,7 @@ import {
   plural,
 } from '../ui.js';
 import { CheckCard } from './CheckCard.js';
+import { CopilotPanel } from './CopilotPanel.js';
 import { IncidentPanel } from './IncidentPanel.js';
 
 function ReadinessPanel({ run, busy, onApprove }: { run: Run; busy: boolean; onApprove: () => void }) {
@@ -46,10 +47,24 @@ function ReadinessPanel({ run, busy, onApprove }: { run: Run; busy: boolean; onA
               <li key={`${reason.code}-${reason.checkId ?? index}`}>{reason.message}</li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-slate-500">
-            Computed deterministically from recorded attempts, evidence and incidents. No AI is involved in this result.
-          </p>
         </div>
+      )}
+
+      {run.nextActions.length > 0 && !run.cancelledAt && (
+        <div className="mt-3">
+          <p className="text-sm font-semibold text-slate-800">What should I do next?</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-700">
+            {run.nextActions.map((action) => (
+              <li key={action}>{action}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(showReasons || run.nextActions.length > 0) && (
+        <p className="mt-2 text-xs text-slate-500">
+          Computed deterministically from recorded attempts, evidence and incidents. No AI is involved in this result.
+        </p>
       )}
 
       {readiness.status === 'READY' && run.approvedAt && (
@@ -113,10 +128,12 @@ function AuditTrail({ runId, version }: { runId: string; version: number }) {
 
 export function RunDetail({
   runId,
+  signedIn,
   onBack,
   onSignIn,
 }: {
   runId: string;
+  signedIn: boolean;
   onBack: () => void;
   onSignIn: () => void;
 }) {
@@ -230,6 +247,7 @@ export function RunDetail({
       </div>
 
       <IncidentPanel run={run} busy={busy} perform={perform} />
+      <CopilotPanel key={version} run={run} signedIn={signedIn} />
       <AuditTrail runId={run.id} version={version} />
 
       {!recorded && !run.approvedAt && !run.cancelledAt && (

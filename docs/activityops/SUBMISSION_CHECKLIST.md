@@ -5,7 +5,7 @@ immediately before uploading.
 
 - [ ] Correct Ring track selected
 - [ ] Ring technology used at runtime, not mocked
-- [ ] AWS Builder requirements satisfied
+- [ ] AWS Builder requirements satisfied — **at risk**: needs a real Bedrock-backed agent; foundation built, model access missing (B-002)
 - [ ] Public GitHub repository exists
 - [x] Visible license, or configured private reviewer access — MIT `LICENSE` committed
 - [x] No secrets or tokens in git history or fixtures — `scan-secrets.mjs --history` clean (2026-10-08); re-run before submitting

@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { eligibleWindow, type AttemptRow } from '../domain/attempts.js';
 import { readiness } from '../domain/runs.js';
 import { allowedTransitions } from '../domain/incidents.js';
+import { nextActions } from '../ai/nextActions.js';
 import type { IncidentStatus } from '../domain/types.js';
 import { DomainError, ERR } from '../domain/errors.js';
 import { row, rows } from '../db/query.js';
@@ -98,6 +99,8 @@ export interface RunView {
   readiness: ReadinessResult;
   checks: CheckView[];
   incidents: IncidentView[];
+  /** "What should I do next?" - mapped deterministically from readiness. */
+  nextActions: string[];
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -282,7 +285,7 @@ export function presentRun(db: DatabaseSync, runId: string, now: Date): RunView 
     };
   });
 
-  return {
+  const view: RunView = {
     id: run.id,
     templateName: run.name,
     triggerType: run.trigger_type,
@@ -299,7 +302,10 @@ export function presentRun(db: DatabaseSync, runId: string, now: Date): RunView 
     readiness: readiness(db, runId, now),
     checks,
     incidents: presentIncidents(db, { runId }),
+    nextActions: [],
   };
+  // Deterministic, configured actions (spec sec. 17) - no model involved.
+  return { ...view, nextActions: nextActions(view).map((a) => a.action) };
 }
 
 export interface RunSummary {

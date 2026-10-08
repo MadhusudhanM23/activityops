@@ -34,11 +34,14 @@
 | 2026-10-08 | 6 | container: persistence | `docker restart` | 1 | 0 | Deletion record survives restart, seed does not re-run, WAL mode on the volume |
 | 2026-10-08 | 6 | container: data-dir ownership | root-owned bind mount, then `chown 1000:1000` | 2 | 0 | Root-owned → exits `unable to open database file`; chowned → healthy, HTTP 200, Docker HEALTHCHECK healthy. First attempt used a named volume and was invalid (L-22) |
 | 2026-10-08 | 7 | fresh-clone quickstart | `git clone` → `npm install` → `npm test` → `npm run dev:api` / `dev:web` | 5 | 0 | Install, 183 tests, API, Review Mode via proxy, dev login all work. **README URL `127.0.0.1:5173` failed** — Vite listens on IPv6; fixed to `localhost` (L-27) |
+| 2026-10-08 | 5 | AI copilot foundation | `npm test` with a scripted fake model | 26 | 0 | Read-only allowlist, run scoping, untrusted wrapping, sanitising, trace, step limit, output guard, **fully-obeyed injection changes nothing and its false claim is withheld**, HTTP route, saved notes, privacy wording |
+| 2026-10-08 | 5 | AI mutation testing | scripted, 6 mutations | 6 caught | 0 missed | Output guard, tool allowlist, operator text in instruction, untrusted wrapping, saving withheld notes, step limit |
+| 2026-10-08 | 5 | browser: copilot panel | headless Edge, `localhost`, 390px | 3 checks | 0 | Anonymous: next actions, no generate button. Signed in: honest "not enabled" message. Only console error is that intentional 503 |
 
 ## Totals
 
-**183 automated tests, 0 failing** (13 suites), plus browser walkthroughs, container checks and a
-6-for-6 mutation check on the security guards.
+**209 automated tests, 0 failing** (14 suites), plus browser walkthroughs, container checks and mutation
+checks on the security guards (6/6) and the AI defences (6/6).
 
 ## What these results do not prove
 
@@ -46,5 +49,6 @@
   remains unverified (T4, R-004).
 - The browser live flow uses a **test-only fake Ring server** serving the measured Day-1 shapes. It
   proves our UI and pipeline, not Ring's behaviour.
-- **Bedrock (T9) and Strands (T10)** have not been executed — no AWS account access (B-002).
+- **Bedrock (T9) and Strands (T10)** have not been executed — no AWS account access (B-002). The AI
+  tests use a scripted fake model: they prove the defences around a model, not any model's behaviour.
 - **Nothing has been deployed to AWS.** Container behaviour is verified locally in Docker Desktop.

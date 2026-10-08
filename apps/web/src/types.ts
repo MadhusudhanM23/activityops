@@ -93,6 +93,34 @@ export interface Run {
   readiness: Readiness;
   checks: Check[];
   incidents: Incident[];
+  /** "What should I do next?" - deterministic, computed without AI. */
+  nextActions: string[];
+}
+
+export interface AiTraceEntry {
+  tool: string;
+  at: string;
+  ok: boolean;
+  summary: string;
+}
+
+export interface AiNote {
+  id: string;
+  type: string;
+  text: string;
+  createdAt: string;
+  modelId?: string;
+  requestedBy?: string;
+  trace?: AiTraceEntry[];
+}
+
+export interface AiAnswer {
+  source: 'AI' | 'DETERMINISTIC';
+  status: string;
+  text?: string;
+  lines?: string[];
+  trace: AiTraceEntry[];
+  savedId?: string | null;
 }
 
 export interface RunSummary {
