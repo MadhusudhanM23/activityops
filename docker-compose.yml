@@ -1,0 +1,58 @@
+# ActivityOps production stack (spec v7 sec. 18).
+#
+#   activityops-app : API + built frontend, HTTP on the private network only
+#   caddy           : HTTPS (automatic certificates) in front of it
+#
+# Required environment (see deploy/README.md):
+#   ACTIVITYOPS_DOMAIN   public hostname, e.g. activityops.example.com
+#   ACTIVITYOPS_DATA_DIR mount point of the encrypted EBS volume
+#   .env.production      DEMO_PASSWORD etc., written from Secrets Manager at boot
+
+services:
+  activityops-app:
+    build: .
+    image: activityops-app:latest
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "8080"
+      DATABASE_PATH: /data/activityops.sqlite
+      WEB_DIST_PATH: /app/apps/web/dist
+      # Caddy sets X-Forwarded-For; trust it so rate limits see the real client.
+      TRUST_PROXY: "true"
+      COOKIE_SECURE: "true"
+    volumes:
+      # Encrypted EBS volume - the authoritative SQLite store survives container
+      # and instance replacement. App Runner was ruled out for this reason.
+      - ${ACTIVITYOPS_DATA_DIR:-/mnt/activityops-data}:/data
+    expose:
+      - "8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - activityops-app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ACTIVITYOPS_DOMAIN: ${ACTIVITYOPS_DOMAIN:?set ACTIVITYOPS_DOMAIN to the public hostname}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

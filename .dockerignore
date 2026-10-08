@@ -1,0 +1,14 @@
+# Keep secrets, local state and host-built artifacts out of the build context.
+.git
+node_modules
+**/node_modules
+**/dist
+data
+**/*.sqlite
+**/*.sqlite-wal
+**/*.sqlite-shm
+.env
+.env.*
+evidence/day-1/raw
+coverage
+*.tsbuildinfo

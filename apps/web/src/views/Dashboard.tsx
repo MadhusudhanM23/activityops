@@ -4,7 +4,15 @@ import { api } from '../api.js';
 import { Badge, Button, Card, ErrorNote, ModeLabel, RunStatusChip, formatTime } from '../ui.js';
 import { RingConnect } from './RingConnect.js';
 
-export function Dashboard({ onOpenRun }: { onOpenRun: (id: string) => void }) {
+export function Dashboard({
+  signedIn,
+  onOpenRun,
+  onSignIn,
+}: {
+  signedIn: boolean;
+  onOpenRun: (id: string) => void;
+  onSignIn: () => void;
+}) {
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateId, setTemplateId] = useState('');
@@ -13,16 +21,15 @@ export function Dashboard({ onOpenRun }: { onOpenRun: (id: string) => void }) {
 
   const load = useCallback(async () => {
     try {
-      const [runList, templateList] = await Promise.all([api.runs(), api.templates()]);
+      // Anonymous visitors see Review Mode only; templates need a session.
+      const [runList, templateList] = await Promise.all([api.runs(), signedIn ? api.templates() : []]);
       setRuns(runList);
-      // Recorded templates exist only to back the review run; starting new runs uses live ones.
-      const live = templateList.filter((t) => !t.id.startsWith('template-recorded'));
-      setTemplates(live);
-      setTemplateId((current) => current || live[0]?.id || '');
+      setTemplates(templateList);
+      setTemplateId((current) => current || templateList[0]?.id || '');
     } catch {
       setError('Could not load runs.');
     }
-  }, []);
+  }, [signedIn]);
 
   useEffect(() => {
     void load();
@@ -73,8 +80,27 @@ export function Dashboard({ onOpenRun }: { onOpenRun: (id: string) => void }) {
         </ul>
       </Card>
 
-      <RingConnect onConnected={(id) => { setTemplateId(id); void load(); }} />
+      {!signedIn ? (
+        <Card className="p-4">
+          <h2 className="text-base font-semibold text-slate-900">Live Test</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Sign in to connect your own Ring Developer Playground session, discover its devices, and run checks against
+            live Ring evidence.
+          </p>
+          <Button variant="primary" className="mt-3" onClick={onSignIn}>
+            Sign in for Live Test
+          </Button>
+        </Card>
+      ) : (
+        <RingConnect
+          onConnected={(id) => {
+            setTemplateId(id);
+            void load();
+          }}
+        />
+      )}
 
+      {signedIn && (
       <Card className="p-4">
         <h2 className="text-base font-semibold text-slate-900">Live runs</h2>
         {templates.length > 0 ? (
@@ -109,6 +135,7 @@ export function Dashboard({ onOpenRun }: { onOpenRun: (id: string) => void }) {
           ))}
         </ul>
       </Card>
+      )}
     </div>
   );
 }

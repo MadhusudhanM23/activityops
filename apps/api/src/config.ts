@@ -5,25 +5,71 @@ import { z } from 'zod';
  * hard-coded constants, and the Bedrock model id is deployment configuration
  * (sec. 17: "Do not assume Claude is available").
  */
-const schema = z.object({
-  NODE_ENV: z.string().default('development'),
-  // 8080 is held by a local service on the primary dev machine (D-026); the
-  // container sets PORT explicitly, so the dev default avoids the collision.
-  PORT: z.coerce.number().default(8787),
-  HOST: z.string().default('127.0.0.1'),
-  DATABASE_PATH: z.string().default('./data/activityops.sqlite'),
-  CLOCK_SKEW_ALLOWANCE_SECONDS: z.coerce.number().default(30),
-  SESSION_WINDOW_SECONDS: z.coerce.number().default(600),
-  DEMO_SESSION_WINDOW_SECONDS: z.coerce.number().default(300),
-  POST_WINDOW_OBSERVATION_MARGIN_SECONDS: z.coerce.number().default(60),
-  HISTORY_PAGE_CAP: z.coerce.number().default(10),
-  // Single demo identity until Phase 6 adds sessions. One login means the UI must
-  // never imply two-person control (sec. 14).
-  DEMO_ACTOR: z.string().default('demo.operator'),
-  RING_API_BASE_URL: z.string().optional(),
-  AWS_REGION: z.string().optional(),
-  BEDROCK_MODEL_ID: z.string().optional(),
-});
 
-export const config = schema.parse(process.env);
-export type Config = z.infer<typeof schema>;
+/** The development-only password. Refused in production (see below). */
+export const DEV_DEMO_PASSWORD = 'activityops-dev-only';
+
+const flag = z
+  .enum(['true', 'false'])
+  .optional()
+  .transform((value) => (value === undefined ? undefined : value === 'true'));
+
+const schema = z
+  .object({
+    NODE_ENV: z.string().default('development'),
+    // 8080 is held by a local service on the primary dev machine (D-026); the
+    // container sets PORT explicitly, so the dev default avoids the collision.
+    PORT: z.coerce.number().default(8787),
+    HOST: z.string().default('127.0.0.1'),
+    DATABASE_PATH: z.string().default('./data/activityops.sqlite'),
+    /** Built frontend to serve. Unset in development, where Vite serves it. */
+    WEB_DIST_PATH: z.string().optional(),
+
+    CLOCK_SKEW_ALLOWANCE_SECONDS: z.coerce.number().default(30),
+    SESSION_WINDOW_SECONDS: z.coerce.number().default(600),
+    DEMO_SESSION_WINDOW_SECONDS: z.coerce.number().default(300),
+    // PROVISIONAL: Day-1 T5 could not be run (device offline), so this is unmeasured.
+    POST_WINDOW_OBSERVATION_MARGIN_SECONDS: z.coerce.number().default(60),
+    HISTORY_PAGE_CAP: z.coerce.number().default(10),
+
+    // One login in this build, so the UI never implies two-person control (sec. 14).
+    DEMO_USERNAME: z.string().min(3).default('demo.operator'),
+    DEMO_PASSWORD: z.string().optional(),
+    /** Secure cookies require HTTPS; defaults on in production. */
+    COOKIE_SECURE: flag,
+    SESSION_IDLE_MINUTES: z.coerce.number().default(720),
+    /** Behind Caddy, the client IP comes from X-Forwarded-For (used for rate limits). */
+    TRUST_PROXY: flag,
+
+    RING_API_BASE_URL: z.string().optional(),
+    AWS_REGION: z.string().optional(),
+    BEDROCK_MODEL_ID: z.string().optional(),
+  })
+  .transform((env, context) => {
+    const production = env.NODE_ENV === 'production';
+    const password = env.DEMO_PASSWORD ?? (production ? undefined : DEV_DEMO_PASSWORD);
+
+    // Refuse to boot with a missing or known password rather than ship one.
+    if (!password || (production && (password === DEV_DEMO_PASSWORD || password.length < 12))) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['DEMO_PASSWORD'],
+        message: 'DEMO_PASSWORD must be set to a value of at least 12 characters in production.',
+      });
+      return z.NEVER;
+    }
+
+    return {
+      ...env,
+      DEMO_PASSWORD: password,
+      COOKIE_SECURE: env.COOKIE_SECURE ?? production,
+      TRUST_PROXY: env.TRUST_PROXY ?? production,
+    };
+  });
+
+export function loadConfig(source: NodeJS.ProcessEnv = process.env) {
+  return schema.parse(source);
+}
+
+export const config = loadConfig();
+export type Config = ReturnType<typeof loadConfig>;

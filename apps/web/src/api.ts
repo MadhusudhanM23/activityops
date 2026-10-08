@@ -1,12 +1,26 @@
-import type { AuditEntry, Meta, RingStatus, Run, RunSummary, SyncSummary, Template } from './types.js';
+import type {
+  AuditEntry,
+  Meta,
+  PrivacyNotice,
+  RingStatus,
+  Run,
+  RunSummary,
+  SessionInfo,
+  SyncSummary,
+  Template,
+} from './types.js';
 
 /**
  * Typed client for the ActivityOps API.
  *
- * Nothing here ever stores a Ring token: the connect call sends it once over the
- * same-origin HTTPS connection and the server keeps it in memory. No
- * localStorage, no URL parameters (spec sec. 4, 19, 24).
+ * - The session lives in an httpOnly cookie the page cannot read.
+ * - The CSRF token is held in this module's memory only and sent as a header on
+ *   every state-changing request. It is re-fetched from /api/session on load.
+ * - Nothing here ever stores a Ring token: connect sends it once and the server
+ *   keeps it in memory. No localStorage, no URL parameters (spec sec. 4, 19, 24).
  */
+
+let csrfToken: string | null = null;
 
 export class ApiError extends Error {
   constructor(
@@ -23,18 +37,24 @@ export class ApiError extends Error {
   get isIntegration(): boolean {
     return this.code.startsWith('RING_');
   }
+
+  get needsSignIn(): boolean {
+    return this.status === 401 && this.code === 'AUTH_REQUIRED';
+  }
 }
 
 async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (method !== 'GET' && csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
   const response = await fetch(path, {
     method,
     credentials: 'same-origin',
-    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = (await response.json().catch(() => null)) as
-    | { error?: string; message?: string }
-    | null;
+  const data = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
   if (!response.ok) {
     throw new ApiError(
       response.status,
@@ -46,8 +66,22 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
   return data as T;
 }
 
+function remember(session: SessionInfo): SessionInfo {
+  csrfToken = session.csrfToken;
+  return session;
+}
+
 export const api = {
+  session: () => request<SessionInfo>('GET', '/api/session').then(remember),
+  login: (username: string, password: string) =>
+    request<SessionInfo>('POST', '/api/session/login', { username, password }).then(remember),
+  logout: async () => {
+    await request<unknown>('POST', '/api/session/logout');
+    csrfToken = null;
+  },
+
   meta: () => request<Meta>('GET', '/api/meta'),
+  privacy: () => request<PrivacyNotice>('GET', '/api/privacy'),
   runs: () => request<RunSummary[]>('GET', '/api/runs'),
   run: (id: string) => request<Run>('GET', `/api/runs/${encodeURIComponent(id)}`),
   audit: (id: string) => request<AuditEntry[]>('GET', `/api/runs/${encodeURIComponent(id)}/audit`),
@@ -81,7 +115,15 @@ export const api = {
     request<{ devicesDiscovered: number; templateId: string; devices: { label: string; status: string }[] }>(
       'POST',
       '/api/ring/connect',
-      { token },
+      // The notice is acknowledged in the UI before this call is possible.
+      { token, noticeAcknowledged: true },
     ),
   ringDisconnect: () => request<RingStatus>('POST', '/api/ring/disconnect'),
+
+  deleteAll: (confirm: string) =>
+    request<{ deleted: boolean; ringDisconnected: boolean; recordedDemoRestored: boolean; deletedAt: string }>(
+      'POST',
+      '/api/data/delete-all',
+      { confirm },
+    ),
 };

@@ -2,6 +2,7 @@ import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
 import { DomainError, ERR } from '../domain/errors.js';
 import { RingError } from '../ring/errors.js';
+import { AuthRequired } from './context.js';
 
 /**
  * Maps domain and integration failures to HTTP.
@@ -34,6 +35,11 @@ export function errorHandler(
   request: FastifyRequest,
   reply: FastifyReply,
 ): void {
+  if (error instanceof AuthRequired) {
+    reply.status(401).send({ error: 'AUTH_REQUIRED', message: error.message });
+    return;
+  }
+
   if (error instanceof DomainError) {
     reply.status(DOMAIN_STATUS[error.code] ?? 409).send({ error: error.code, message: error.message });
     return;

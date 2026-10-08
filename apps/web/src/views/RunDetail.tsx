@@ -111,17 +111,27 @@ function AuditTrail({ runId, version }: { runId: string; version: number }) {
   );
 }
 
-export function RunDetail({ runId, onBack }: { runId: string; onBack: () => void }) {
+export function RunDetail({
+  runId,
+  onBack,
+  onSignIn,
+}: {
+  runId: string;
+  onBack: () => void;
+  onSignIn: () => void;
+}) {
   const [run, setRun] = useState<Run | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   const [version, setVersion] = useState(0);
 
   const load = useCallback(async () => {
     try {
       setRun(await api.run(runId));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not load the run.');
+      if (cause instanceof ApiError && cause.needsSignIn) setNeedsSignIn(true);
+      else setError(cause instanceof Error ? cause.message : 'Could not load the run.');
     }
   }, [runId]);
 
@@ -148,6 +158,23 @@ export function RunDetail({ runId, onBack }: { runId: string; onBack: () => void
     },
     [load],
   );
+
+  if (needsSignIn) {
+    return (
+      <Card className="p-4">
+        <h1 className="text-base font-semibold text-slate-900">Sign in to view this run</h1>
+        <p className="mt-1 text-sm text-slate-600">Live runs are visible only when signed in. Review Mode is open to everyone.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button variant="primary" onClick={onSignIn}>
+            Sign in
+          </Button>
+          <Button variant="ghost" onClick={onBack}>
+            Back to Review Mode
+          </Button>
+        </div>
+      </Card>
+    );
+  }
 
   if (!run) {
     return (

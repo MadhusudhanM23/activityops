@@ -131,7 +131,18 @@ export interface Meta {
     postWindowObservationMarginSeconds: number;
     measured: boolean;
   };
-  actor: string;
+  user: string | null;
+}
+
+export interface SessionInfo {
+  authenticated: boolean;
+  user: string | null;
+  csrfToken: string | null;
+}
+
+export interface PrivacyNotice {
+  title: string;
+  sections: { heading: string; body: string[] }[];
 }
 
 export interface AuditEntry {

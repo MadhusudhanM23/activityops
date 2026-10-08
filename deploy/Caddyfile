@@ -1,0 +1,12 @@
+# HTTPS termination for ActivityOps (spec v7 sec. 18, 24).
+# Caddy obtains and renews the certificate automatically for the domain.
+{$ACTIVITYOPS_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	reverse_proxy activityops-app:8080
+}

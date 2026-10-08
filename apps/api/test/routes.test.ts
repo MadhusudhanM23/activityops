@@ -1,74 +1,21 @@
-import { DatabaseSync } from 'node:sqlite';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { FastifyInstance } from 'fastify';
-import { buildApp } from '../src/app.js';
-import { migrate } from '../src/db/migrate.js';
-import { RingClient } from '../src/ring/client.js';
-import { RingTokenStore } from '../src/ring/tokenStore.js';
 import { REVIEW_RUN_ID, seedReviewMode } from '../src/seed/reviewMode.js';
-import { DEVICE_A, realDeviceList, stubFetch, syntheticPage } from './fixtures/ring.js';
-
-/**
- * HTTP-level tests. The Ring provider is a stub serving the measured Day-1
- * shapes; every other layer - routes, workflow, domain, SQLite triggers - is real.
- */
-
-const BASE = 'https://api.example.invalid';
-// A syntactically valid JWT whose exp is far in the future. Not a real credential.
-const FAKE_TOKEN = [
-  'eyJhbGciOiJub25lIn0',
-  Buffer.from(JSON.stringify({ exp: 4102444800, scopes: ['ava.v1:read'] })).toString('base64url'),
-  'c2lnbmF0dXJl',
-].join('.');
+import { DEVICE_A, realDeviceList, syntheticPage } from './fixtures/ring.js';
+import { FAKE_TOKEN, type Harness, advance, makeHarness } from './helpers/http.js';
 
 const FORBIDDEN = /person detected|motion detected|site is safe|site was clear|area is clear|verified safe|proven clear|four-eyes|manager sign-off/i;
 
-interface Harness {
-  app: FastifyInstance;
-  db: DatabaseSync;
-  clock: { now: Date };
-  setRoute: (handler: (url: string) => { status?: number; body: unknown }) => void;
-  calls: string[];
-}
-
 let current: Harness | undefined;
-
-function harness(): Harness {
-  const db = new DatabaseSync(':memory:');
-  db.exec('PRAGMA foreign_keys = ON;');
-  migrate(db);
-  const clock = { now: new Date('2026-10-08T09:00:00.000Z') };
-  let route: (url: string) => { status?: number; body: unknown } = () => ({ body: realDeviceList });
-  const { impl, calls } = stubFetch((url) => route(url));
-  const tokenStore = new RingTokenStore();
-  const app = buildApp({
-    db,
-    tokenStore,
-    ringClient: new RingClient({ baseUrl: BASE, tokenProvider: tokenStore, fetchImpl: impl }),
-    now: () => clock.now,
-  });
-  current = {
-    app,
-    db,
-    clock,
-    calls,
-    setRoute: (handler) => {
-      route = handler;
-    },
-  };
+async function harness(options?: Parameters<typeof makeHarness>[0]) {
+  current = await makeHarness(options);
   return current;
 }
-
 afterEach(async () => {
   await current?.app.close();
   current = undefined;
 });
 
-const advance = (h: Harness, seconds: number) => {
-  h.clock.now = new Date(h.clock.now.getTime() + seconds * 1000);
-};
-
-/** realDeviceList with the device reported online, for tests that must isolate another variable. */
+/** realDeviceList with the device reported online, to isolate other variables. */
 const onlineDeviceList = {
   ...realDeviceList,
   included: realDeviceList.included.map((r) =>
@@ -76,21 +23,18 @@ const onlineDeviceList = {
   ),
 };
 
+const connect = (h: Harness, token = FAKE_TOKEN) =>
+  h.call('POST', '/api/ring/connect', { token, noticeAcknowledged: true });
+
 /**
- * Connects with the fake token and creates a live run. Returns ids.
- * Defaults to an ONLINE device; the measured Day-1 device was offline, which is
- * its own test case below.
+ * Connects and creates a live run. Defaults to an ONLINE device; the measured
+ * Day-1 device was offline, which is its own test case below.
  */
 async function liveRun(h: Harness, options: { deviceOnline?: boolean } = {}) {
-  const devices = options.deviceOnline === false ? realDeviceList : onlineDeviceList;
-  h.setRoute(() => ({ body: devices }));
-  const connect = await h.app.inject({ method: 'POST', url: '/api/ring/connect', payload: { token: FAKE_TOKEN } });
-  expect(connect.statusCode).toBe(200);
-  const created = await h.app.inject({
-    method: 'POST',
-    url: '/api/runs',
-    payload: { templateId: connect.json().templateId },
-  });
+  h.setRoute(() => ({ body: options.deviceOnline === false ? realDeviceList : onlineDeviceList }));
+  const connected = await connect(h);
+  expect(connected.statusCode).toBe(200);
+  const created = await h.call('POST', '/api/runs', { templateId: connected.json().templateId });
   expect(created.statusCode).toBe(201);
   const run = created.json();
   const ringCheck = run.checks.find((c: { requirementType: string }) => c.requirementType === 'RING_REQUIRED');
@@ -102,9 +46,9 @@ async function liveRun(h: Harness, options: { deviceOnline?: boolean } = {}) {
 
 describe('Review Mode (spec sec. 19)', () => {
   it('serves the recorded run as READY with the required banner', async () => {
-    const h = harness();
+    const h = await harness();
     seedReviewMode(h.db);
-    const res = await h.app.inject({ method: 'GET', url: `/api/runs/${REVIEW_RUN_ID}` });
+    const res = await h.call('GET', `/api/runs/${REVIEW_RUN_ID}`);
     const run = res.json();
 
     expect(res.statusCode).toBe(200);
@@ -114,9 +58,9 @@ describe('Review Mode (spec sec. 19)', () => {
   });
 
   it('shows the captured session as evidence, with its limits', async () => {
-    const h = harness();
+    const h = await harness();
     seedReviewMode(h.db);
-    const run = (await h.app.inject({ method: 'GET', url: `/api/runs/${REVIEW_RUN_ID}` })).json();
+    const run = (await h.call('GET', `/api/runs/${REVIEW_RUN_ID}`)).json();
     const ring = run.checks.find((c: { requirementType: string }) => c.requirementType === 'RING_REQUIRED');
 
     expect(ring.latestAttempt.status).toBe('PASS');
@@ -129,9 +73,9 @@ describe('Review Mode (spec sec. 19)', () => {
   });
 
   it('keeps the failed attempt beside its recheck', async () => {
-    const h = harness();
+    const h = await harness();
     seedReviewMode(h.db);
-    const run = (await h.app.inject({ method: 'GET', url: `/api/runs/${REVIEW_RUN_ID}` })).json();
+    const run = (await h.call('GET', `/api/runs/${REVIEW_RUN_ID}`)).json();
     const alarm = run.checks.find((c: { label: string }) => c.label.startsWith('Alarm panel'));
 
     expect(alarm.attempts.map((a: { status: string }) => a.status)).toEqual(['FAIL', 'PASS']);
@@ -139,9 +83,9 @@ describe('Review Mode (spec sec. 19)', () => {
   });
 
   it('shows an override as OVERRIDDEN, never as PASS', async () => {
-    const h = harness();
+    const h = await harness();
     seedReviewMode(h.db);
-    const run = (await h.app.inject({ method: 'GET', url: `/api/runs/${REVIEW_RUN_ID}` })).json();
+    const run = (await h.call('GET', `/api/runs/${REVIEW_RUN_ID}`)).json();
     const notes = run.checks.find((c: { label: string }) => c.label.startsWith('Previous shift'));
 
     expect(notes.latestAttempt.status).toBe('OVERRIDDEN');
@@ -150,9 +94,9 @@ describe('Review Mode (spec sec. 19)', () => {
   });
 
   it('records the incident lifecycle through to human resolution', async () => {
-    const h = harness();
+    const h = await harness();
     seedReviewMode(h.db);
-    const run = (await h.app.inject({ method: 'GET', url: `/api/runs/${REVIEW_RUN_ID}` })).json();
+    const run = (await h.call('GET', `/api/runs/${REVIEW_RUN_ID}`)).json();
     const alarmIncident = run.incidents.find((i: { checkLabel: string }) => i.checkLabel.startsWith('Alarm panel'));
 
     expect(alarmIncident.status).toBe('RESOLVED');
@@ -171,9 +115,9 @@ describe('Review Mode (spec sec. 19)', () => {
   });
 
   it('refuses to change or sync a recorded run', async () => {
-    const h = harness();
+    const h = await harness();
     seedReviewMode(h.db);
-    const run = (await h.app.inject({ method: 'GET', url: `/api/runs/${REVIEW_RUN_ID}` })).json();
+    const run = (await h.call('GET', `/api/runs/${REVIEW_RUN_ID}`)).json();
     const ring = run.checks[0];
 
     for (const url of [
@@ -181,37 +125,42 @@ describe('Review Mode (spec sec. 19)', () => {
       `/api/runs/${REVIEW_RUN_ID}/checks/${ring.id}/sync`,
       `/api/runs/${REVIEW_RUN_ID}/cancel`,
     ]) {
-      const res = await h.app.inject({ method: 'POST', url });
+      const res = await h.call('POST', url);
       expect(res.statusCode).toBe(409);
       expect(res.json().message).toMatch(/recorded demo run/i);
     }
   });
 
   it('refuses incident transitions on the recorded run at the API, not just in the UI', async () => {
-    const h = harness();
+    const h = await harness();
     seedReviewMode(h.db);
     // Every seeded incident is already closed, so a transition on one would fail on
     // the lifecycle rule alone. Plant an OPEN incident so only the guard can stop it.
-    const check = h.db.prepare('SELECT id FROM verification_check WHERE id = ?').get('check-recorded-float') as { id: string };
     h.db
       .prepare(
-        "INSERT INTO incident (id, check_id, run_id, severity, status, reason, created_at) VALUES ('planted', ?, ?, 'HIGH', 'OPEN', 'planted', ?)",
+        "INSERT INTO incident (id, check_id, run_id, severity, status, reason, created_at) VALUES ('planted', 'check-recorded-float', ?, 'HIGH', 'OPEN', 'planted', ?)",
       )
-      .run(check.id, REVIEW_RUN_ID, new Date().toISOString());
+      .run(REVIEW_RUN_ID, new Date().toISOString());
 
-    const res = await h.app.inject({
-      method: 'POST',
-      url: '/api/incidents/planted/transition',
-      payload: { to: 'ACKNOWLEDGED' },
-    });
+    const res = await h.call('POST', '/api/incidents/planted/transition', { to: 'ACKNOWLEDGED' });
     expect(res.statusCode).toBe(409);
     expect(res.json().message).toMatch(/recorded demo run/i);
   });
 
-  it('produces an audit trail for every accountable action', async () => {
-    const h = harness();
+  it('does not offer the recorded template for new runs, and refuses it if asked', async () => {
+    const h = await harness();
     seedReviewMode(h.db);
-    const audit = (await h.app.inject({ method: 'GET', url: `/api/runs/${REVIEW_RUN_ID}/audit` })).json();
+    const templates = (await h.call('GET', '/api/templates')).json();
+    expect(templates.map((t: { id: string }) => t.id)).not.toContain('template-recorded-opening');
+
+    const res = await h.call('POST', '/api/runs', { templateId: 'template-recorded-opening' });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('produces an audit trail for every accountable action', async () => {
+    const h = await harness();
+    seedReviewMode(h.db);
+    const audit = (await h.call('GET', `/api/runs/${REVIEW_RUN_ID}/audit`)).json();
     const actions = audit.map((a: { action: string }) => a.action);
 
     for (const expected of ['START_ATTEMPT', 'CLAIM_EVIDENCE', 'PASS', 'FAIL', 'RECHECK', 'OVERRIDE', 'DISMISS', 'APPROVE']) {
@@ -220,21 +169,28 @@ describe('Review Mode (spec sec. 19)', () => {
   });
 });
 
-describe('Live Test Mode connection (spec sec. 19, 24)', () => {
+describe('Live Test Mode connection (spec sec. 16, 19, 24)', () => {
   it('discovers devices dynamically and never echoes the token', async () => {
-    const h = harness();
-    const res = await h.app.inject({ method: 'POST', url: '/api/ring/connect', payload: { token: FAKE_TOKEN } });
+    const h = await harness();
+    const res = await connect(h);
 
     expect(res.statusCode).toBe(200);
     expect(res.json().devicesDiscovered).toBe(1);
     expect(res.body).not.toContain(FAKE_TOKEN);
-    expect((await h.app.inject({ method: 'GET', url: '/api/meta' })).body).not.toContain(FAKE_TOKEN);
-    expect((await h.app.inject({ method: 'GET', url: '/api/ring/status' })).body).not.toContain(FAKE_TOKEN);
+    expect((await h.call('GET', '/api/meta')).body).not.toContain(FAKE_TOKEN);
+    expect((await h.call('GET', '/api/ring/status')).body).not.toContain(FAKE_TOKEN);
+  });
+
+  it('requires the data-practices notice to be acknowledged first', async () => {
+    const h = await harness();
+    const res = await h.call('POST', '/api/ring/connect', { token: FAKE_TOKEN });
+    expect(res.statusCode).toBe(400);
+    expect(h.calls).toHaveLength(0); // Ring was never contacted
   });
 
   it('never writes the token to SQLite', async () => {
-    const h = harness();
-    await h.app.inject({ method: 'POST', url: '/api/ring/connect', payload: { token: FAKE_TOKEN } });
+    const h = await harness();
+    await connect(h);
 
     const tables = h.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[];
     for (const { name } of tables) {
@@ -244,32 +200,28 @@ describe('Live Test Mode connection (spec sec. 19, 24)', () => {
   });
 
   it('drops a token Ring rejects', async () => {
-    const h = harness();
+    const h = await harness();
     h.setRoute(() => ({ status: 401, body: '' }));
-    const res = await h.app.inject({ method: 'POST', url: '/api/ring/connect', payload: { token: FAKE_TOKEN } });
+    const res = await connect(h);
 
     expect(res.statusCode).toBe(409);
-    const status = (await h.app.inject({ method: 'GET', url: '/api/ring/status' })).json();
+    const status = (await h.call('GET', '/api/ring/status')).json();
     expect(status.connected).toBe(false);
     expect(status.integrationState).toBe('RECONNECT_REQUIRED');
   });
 
   it('rejects an already-expired token without calling Ring', async () => {
-    const h = harness();
-    const expired = [
-      'eyJhbGciOiJub25lIn0',
-      Buffer.from(JSON.stringify({ exp: 1000 })).toString('base64url'),
-      'c2ln',
-    ].join('.');
-    const res = await h.app.inject({ method: 'POST', url: '/api/ring/connect', payload: { token: expired } });
+    const h = await harness();
+    const expired = ['eyJhbGciOiJub25lIn0', Buffer.from(JSON.stringify({ exp: 1000 })).toString('base64url'), 'c2ln'].join('.');
+    const res = await connect(h, expired);
 
     expect(res.statusCode).toBe(422);
     expect(h.calls).toHaveLength(0);
   });
 
   it('validation errors never echo the submitted value', async () => {
-    const h = harness();
-    const res = await h.app.inject({ method: 'POST', url: '/api/ring/connect', payload: { token: 'short-secret' } });
+    const h = await harness();
+    const res = await h.call('POST', '/api/ring/connect', { token: 'short-secret', noticeAcknowledged: true });
     expect(res.statusCode).toBe(400);
     expect(res.body).not.toContain('short-secret');
   });
@@ -277,26 +229,20 @@ describe('Live Test Mode connection (spec sec. 19, 24)', () => {
 
 describe('live check workflow over HTTP', () => {
   it('refuses PASS on a Ring check before a session is observed', async () => {
-    const h = harness();
+    const h = await harness();
     const { runId, ringCheckId } = await liveRun(h);
-    const started = (
-      await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/start` })
-    ).json();
+    const started = (await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/start`)).json();
     const attempt = started.checks.find((c: { id: string }) => c.id === ringCheckId).latestAttempt;
 
-    const res = await h.app.inject({
-      method: 'POST',
-      url: `/api/attempts/${attempt.id}/decision`,
-      payload: { decision: 'PASS' },
-    });
+    const res = await h.call('POST', `/api/attempts/${attempt.id}/decision`, { decision: 'PASS' });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe('RING_EVIDENCE_REQUIRED');
   });
 
   it('syncs, claims the session, and then allows PASS', async () => {
-    const h = harness();
+    const h = await harness();
     const { runId, ringCheckId } = await liveRun(h);
-    await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/start` });
+    await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/start`);
     const sessionStart = h.clock.now.getTime() + 20_000;
     advance(h, 60);
 
@@ -305,7 +251,7 @@ describe('live check workflow over HTTP', () => {
         ? { body: { data: { type: 'device-status', id: 's', attributes: { online: true, reported_at: '2026-10-08T09:00:30Z' } } } }
         : { body: syntheticPage([{ id: 'live-session-1', startMs: sessionStart, deviceId: DEVICE_A }], null) },
     );
-    const sync = await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/sync` });
+    const sync = await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/sync`);
     expect(sync.statusCode).toBe(200);
     expect(sync.json().sync.sessionClaimed).toBe(true);
     // Sync never touched a media endpoint.
@@ -314,53 +260,49 @@ describe('live check workflow over HTTP', () => {
     const attempt = sync.json().run.checks.find((c: { id: string }) => c.id === ringCheckId).latestAttempt;
     expect(attempt.evidence.label).toBe('Ring session observed during this check window');
 
-    const pass = await h.app.inject({
-      method: 'POST',
-      url: `/api/attempts/${attempt.id}/decision`,
-      payload: { decision: 'PASS' },
-    });
+    const pass = await h.call('POST', `/api/attempts/${attempt.id}/decision`, { decision: 'PASS' });
     expect(pass.statusCode).toBe(200);
   });
 
   it('turns a sync failure into RECONNECT_REQUIRED and nothing else', async () => {
-    const h = harness();
+    const h = await harness();
     const { runId, ringCheckId } = await liveRun(h);
-    await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/start` });
+    await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/start`);
     advance(h, 900);
 
     h.setRoute(() => ({ status: 401, body: '' }));
-    const res = await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/sync` });
+    const res = await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/sync`);
 
     expect(res.statusCode).toBe(409);
     expect(res.json().message).toMatch(/not evidence about the site/i);
 
-    const run = (await h.app.inject({ method: 'GET', url: `/api/runs/${runId}` })).json();
+    const run = (await h.call('GET', `/api/runs/${runId}`)).json();
     expect(run.readiness.integrationState).toBe('RECONNECT_REQUIRED');
     expect(run.readiness.status).not.toBe('BLOCKED');
     expect(run.incidents).toHaveLength(0);
   });
 
   it('a validation-style 403 does not raise the reconnect overlay', async () => {
-    const h = harness();
+    const h = await harness();
     const { runId, ringCheckId } = await liveRun(h);
-    await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/start` });
+    await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/start`);
 
     h.setRoute(() => ({
       status: 403,
       body: { errors: [{ status: '403', code: 'TIME_RANGE_NOT_AUTHORIZED', detail: 'out of bounds' }] },
     }));
-    const res = await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/sync` });
+    const res = await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/sync`);
 
     expect(res.statusCode).toBe(500);
     expect(res.json().setsReconnectOverlay).toBe(false);
-    const run = (await h.app.inject({ method: 'GET', url: `/api/runs/${runId}` })).json();
+    const run = (await h.call('GET', `/api/runs/${runId}`)).json();
     expect(run.readiness.integrationState).toBe('HEALTHY');
   });
 
   it('the measured Day-1 offline device blocks a Ring check as soon as it starts', async () => {
-    const h = harness();
+    const h = await harness();
     const { runId, ringCheckId } = await liveRun(h, { deviceOnline: false });
-    const run = (await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/start` })).json();
+    const run = (await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/start`)).json();
 
     // sec. 12: CHECK_STARTED -> required device unavailable -> BLOCKED.
     expect(run.readiness.status).toBe('BLOCKED');
@@ -368,16 +310,16 @@ describe('live check workflow over HTTP', () => {
   });
 
   it('an offline device raises a BLOCKER coverage incident', async () => {
-    const h = harness();
+    const h = await harness();
     const { runId, ringCheckId } = await liveRun(h);
-    await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/start` });
+    await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/start`);
 
     h.setRoute((url) =>
       url.includes('/status')
         ? { body: { data: { type: 'device-status', id: 's', attributes: { online: false, reported_at: '2026-10-08T09:00:00Z' } } } }
         : { body: { data: [] } },
     );
-    const res = await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/sync` });
+    const res = await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/sync`);
     const run = res.json().run;
 
     expect(run.readiness.status).toBe('BLOCKED');
@@ -385,11 +327,11 @@ describe('live check workflow over HTTP', () => {
   });
 
   it('runs the full fail -> recheck -> resolve -> approve path', async () => {
-    const h = harness();
+    const h = await harness();
     const { runId, ringCheckId, manualCheckId } = await liveRun(h);
 
     // Ring check passes with evidence.
-    await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/start` });
+    await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/start`);
     const sessionStart = h.clock.now.getTime() + 10_000;
     advance(h, 30);
     h.setRoute((url) =>
@@ -397,42 +339,30 @@ describe('live check workflow over HTTP', () => {
         ? { body: { data: { type: 'device-status', id: 's', attributes: { online: true } } } }
         : { body: syntheticPage([{ id: 'sess', startMs: sessionStart, deviceId: DEVICE_A }], null) },
     );
-    const synced = (await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${ringCheckId}/sync` })).json();
+    const synced = (await h.call('POST', `/api/runs/${runId}/checks/${ringCheckId}/sync`)).json();
     const ringAttempt = synced.run.checks.find((c: { id: string }) => c.id === ringCheckId).latestAttempt;
-    await h.app.inject({ method: 'POST', url: `/api/attempts/${ringAttempt.id}/decision`, payload: { decision: 'PASS' } });
+    await h.call('POST', `/api/attempts/${ringAttempt.id}/decision`, { decision: 'PASS' });
 
     // Manual check fails, opening a HIGH incident.
-    let run = (await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${manualCheckId}/start` })).json();
+    let run = (await h.call('POST', `/api/runs/${runId}/checks/${manualCheckId}/start`)).json();
     let manual = run.checks.find((c: { id: string }) => c.id === manualCheckId).latestAttempt;
-    run = (
-      await h.app.inject({
-        method: 'POST',
-        url: `/api/attempts/${manual.id}/decision`,
-        payload: { decision: 'FAIL', reason: 'Zone fault' },
-      })
-    ).json();
+    run = (await h.call('POST', `/api/attempts/${manual.id}/decision`, { decision: 'FAIL', reason: 'Zone fault' })).json();
     expect(run.readiness.status).toBe('NOT_READY');
     const incidentId = run.incidents[0].id;
     expect(run.incidents[0]).toMatchObject({ severity: 'HIGH', status: 'OPEN' });
 
     // Recheck moves the incident to RECHECKING; PASS moves it to READY_TO_RESOLVE.
-    run = (await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/checks/${manualCheckId}/start` })).json();
+    run = (await h.call('POST', `/api/runs/${runId}/checks/${manualCheckId}/start`)).json();
     expect(run.incidents[0].status).toBe('RECHECKING');
     manual = run.checks.find((c: { id: string }) => c.id === manualCheckId).latestAttempt;
-    run = (
-      await h.app.inject({ method: 'POST', url: `/api/attempts/${manual.id}/decision`, payload: { decision: 'PASS' } })
-    ).json();
+    run = (await h.call('POST', `/api/attempts/${manual.id}/decision`, { decision: 'PASS' })).json();
     expect(run.incidents[0].status).toBe('READY_TO_RESOLVE');
 
     // Not approvable until a person resolves the HIGH incident.
-    expect((await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/approve` })).statusCode).toBe(409);
-    await h.app.inject({
-      method: 'POST',
-      url: `/api/incidents/${incidentId}/transition`,
-      payload: { to: 'RESOLVED', reason: 'Fault cleared and rechecked' },
-    });
+    expect((await h.call('POST', `/api/runs/${runId}/approve`)).statusCode).toBe(409);
+    await h.call('POST', `/api/incidents/${incidentId}/transition`, { to: 'RESOLVED', reason: 'Fault cleared and rechecked' });
 
-    const approved = await h.app.inject({ method: 'POST', url: `/api/runs/${runId}/approve` });
+    const approved = await h.call('POST', `/api/runs/${runId}/approve`);
     expect(approved.statusCode).toBe(200);
     expect(approved.json().readiness.status).toBe('READY');
   });
@@ -440,13 +370,14 @@ describe('live check workflow over HTTP', () => {
 
 describe('evidence honesty in every response', () => {
   it('no run view or readiness explanation uses forbidden claims', async () => {
-    const h = harness();
+    const h = await harness();
     seedReviewMode(h.db);
     const bodies = [
-      (await h.app.inject({ method: 'GET', url: `/api/runs/${REVIEW_RUN_ID}` })).body,
-      (await h.app.inject({ method: 'GET', url: '/api/runs' })).body,
-      (await h.app.inject({ method: 'GET', url: `/api/runs/${REVIEW_RUN_ID}/audit` })).body,
-      (await h.app.inject({ method: 'GET', url: '/api/meta' })).body,
+      (await h.call('GET', `/api/runs/${REVIEW_RUN_ID}`)).body,
+      (await h.call('GET', '/api/runs')).body,
+      (await h.call('GET', `/api/runs/${REVIEW_RUN_ID}/audit`)).body,
+      (await h.call('GET', '/api/meta')).body,
+      (await h.call('GET', '/api/privacy')).body,
     ];
     for (const body of bodies) expect(body).not.toMatch(FORBIDDEN);
   });

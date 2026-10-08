@@ -12,6 +12,8 @@ import { Badge, Button, Card, ErrorNote, formatTime } from '../ui.js';
  */
 export function RingConnect({ onConnected }: { onConnected: (templateId: string) => void }) {
   const inputId = useId();
+  const noticeId = useId();
+  const [acknowledged, setAcknowledged] = useState(false);
   const [status, setStatus] = useState<RingStatus | null>(null);
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
@@ -98,9 +100,26 @@ export function RingConnect({ onConnected }: { onConnected: (templateId: string)
           className="mt-3 space-y-2"
           onSubmit={(event) => {
             event.preventDefault();
-            if (token.trim()) void connect();
+            if (token.trim() && acknowledged) void connect();
           }}
         >
+          <div className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+            <input
+              id={noticeId}
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(event) => setAcknowledged(event.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-400"
+            />
+            <label htmlFor={noticeId} className="text-sm text-slate-700">
+              I have read the{' '}
+              <a href="#/privacy" className="font-semibold text-sky-800 underline underline-offset-2">
+                data-practices notice
+              </a>
+              : what Ring data is collected and stored, whether any is sent to Amazon Bedrock, retention, deletion, and
+              workplace-monitoring obligations.
+            </label>
+          </div>
           <label htmlFor={inputId} className="block text-sm text-slate-700">
             Paste a short-lived OAuth token from the Ring Developer Playground. It is sent once over HTTPS, kept in server
             memory only, never stored, logged, or shown again.
@@ -116,7 +135,7 @@ export function RingConnect({ onConnected }: { onConnected: (templateId: string)
               placeholder="Playground OAuth token"
               className="min-h-[40px] flex-1 rounded-lg border border-slate-300 px-3 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
             />
-            <Button type="submit" variant="primary" disabled={busy || token.trim().length === 0}>
+            <Button type="submit" variant="primary" disabled={busy || !acknowledged || token.trim().length === 0}>
               {busy ? 'Connecting…' : 'Connect and discover devices'}
             </Button>
           </div>

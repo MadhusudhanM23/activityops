@@ -13,7 +13,7 @@ if (seedReviewMode(db, config.DEMO_SESSION_WINDOW_SECONDS, config.CLOCK_SKEW_ALL
   console.log('Seeded the recorded Review Mode run.');
 }
 
-const app = buildApp({ db });
+const app = await buildApp({ db });
 app.listen({ port: config.PORT, host: config.HOST }).catch((err) => {
   app.log.error(err);
   process.exit(1);

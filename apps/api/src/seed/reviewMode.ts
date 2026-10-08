@@ -30,7 +30,9 @@ export const CAPTURE_DATE = '2026-10-07';
 
 const SITE = 'site-recorded-demo';
 const DEVICE = 'device-recorded-demo';
-const TEMPLATE = 'template-recorded-opening';
+/** Backs the recorded run only. Never offered for, or accepted by, new live runs. */
+export const REVIEW_TEMPLATE_ID = 'template-recorded-opening';
+const TEMPLATE = REVIEW_TEMPLATE_ID;
 const CHECK_RING = 'check-recorded-entrance';
 const CHECK_ALARM = 'check-recorded-alarm';
 const CHECK_FLOAT = 'check-recorded-float';
