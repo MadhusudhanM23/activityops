@@ -1,30 +1,49 @@
 # Test results
 
-| Date | Phase | Suite | Command | Passed | Failed | Notes |
-|------|-------|-------|---------|--------|--------|-------|
-| 2026-10-07 | 0 | api smoke | `npm test` | 1 | 0 | Health route; asserts integration state is exposed separately from readiness |
-| 2026-10-07 | 0 | api boot | `PORT=3177 tsx src/server.ts` + curl | 1 | 0 | GET /api/health returned HTTP 200. Bind host made configurable after EACCES on 0.0.0.0 |
+## Automated and manual test log
+
+| Date | Phase | Suite | Command / method | Passed | Failed | Notes |
+|------|-------|-------|------------------|--------|--------|-------|
+| 2026-10-07 | 0 | api smoke | `npm test` | 1 | 0 | Health route; integration state exposed separately from readiness |
+| 2026-10-07 | 0 | api boot | `tsx src/server.ts` + curl | 1 | 0 | GET /api/health → 200. Bind failure later re-diagnosed as a port conflict (D-026, L-06) |
 | 2026-10-07 | 0 | web build | `npm run build -w apps/web` | 1 | 0 | Vite production build succeeds |
-| 2026-10-07 | 0 | sqlite | PRAGMA journal_mode | 1 | 0 | Returns `wal` |
+| 2026-10-07 | 0 | sqlite | `PRAGMA journal_mode` | 1 | 0 | Returns `wal` |
+| 2026-10-07 | 1 | Ring Playground T1-T8 | live API calls | 3 pass, 1 partial, 2 inconclusive / not reproduced, 2 blocked | — | Real provider calls. Verdict `DAY-1 GATE: PARTIAL`. See `INTEGRATION_FINDINGS.md` |
 | 2026-10-07 | 2 | attempts + evidence gate | `npm test` | 19 | 0 | Session gating, sec. 8.4 window bounds, device/type/ambiguity binding, one-to-one claim, immutability triggers, override |
-| 2026-10-07 | 2 | readiness precedence | `npm test` | 20 | 0 | All six precedence rules, integration overlay vs coverage, blocking severities, forbidden-wording assertion |
-| 2026-10-07 | 2 | incident lifecycle | `npm test` | 14 | 0 | One-open-incident, escalation, illegal transitions, dismissal deadlock, approval/cancel, audit trail |
-| 2026-10-07 | 2 | sync coverage gating | `npm test` | 8 | 0 | Case A vs Case B blockers through the database; UNKNOWN device and integration failure both proven non-blocking |
-| 2026-10-07 | 1 | Ring Playground T1-T8 | live API calls | 3 pass, 1 partial, 2 inconclusive/not-reproduced, 2 blocked | — | Real provider calls. Verdict `DAY-1 GATE: PARTIAL`. See `INTEGRATION_FINDINGS.md` |
-| 2026-10-07 | 3 | ring normalization | `npm test` | 14 | 0 | Measured JSON:API envelope, epoch-ms conversion, relationships.source binding, authoritative client-side filter |
-| 2026-10-07 | 3 | ring error classification | `npm test` | 15 | 0 | Both measured 403 codes map to REQUEST_INVALID; 401/429/5xx raise the overlay; no error is ever negative evidence |
-| 2026-10-07 | 3 | ring history sync | `npm test` | 14 | 0 | Traversal, repeated-URL abort, page cap, idempotent upsert, coverage both-conditions, real-payload end-to-end |
+| 2026-10-07 | 2 | readiness precedence | `npm test` | 20 | 0 | Six precedence rules, integration overlay vs coverage, blocking severities, forbidden wording |
+| 2026-10-07 | 2 | incident lifecycle | `npm test` | 14 | 0 | One open incident, escalation, illegal transitions, dismissal deadlock, approval/cancel, audit |
+| 2026-10-07 | 2 | sync coverage gating | `npm test` | 8 | 0 | Case A vs Case B through the database; UNKNOWN device and integration failure proven non-blocking |
+| 2026-10-07 | 3 | ring normalization | `npm test` | 14 | 0 | Measured JSON:API envelope, epoch-ms conversion, `relationships.source` binding, authoritative client-side filter |
+| 2026-10-07 | 3 | ring error classification | `npm test` | 15 | 0 | Both measured 403 codes → REQUEST_INVALID; 401/429/5xx raise the overlay; no error is ever negative evidence |
+| 2026-10-07 | 3 | ring history sync | `npm test` | 14 | 0 | Traversal, repeated-URL abort, page cap, idempotent upsert, two-condition coverage, real payload end to end |
+| 2026-10-07 | 4 | HTTP routes | `npm test` | 21 | 0 | Review Mode, Live Test connect, token never echoed/persisted, fail → recheck → resolve → approve, sync failure isolation, recorded-run immutability |
+| 2026-10-07 | 4 | frontend wording gate | `npm test` | 9 | 0 | Scans `apps/web/src` for forbidden claims and browser-storage use; scanner self-tests |
+| 2026-10-07 | 4 | browser: Review Mode | headless Edge, 390px + 1280px | 6 shots | 0 | No horizontal overflow; 5 visual defects found and fixed (L-17) |
+| 2026-10-07 | 4 | browser: live end to end | headless Edge + test-only fake Ring server | 1 flow | 0 | NOT_STARTED → PASS locked → unlocked after sync → FAIL → recheck → READY. 0 console errors, 0 media calls, token absent from logs |
+| 2026-10-07 | 4 | built-artifact boot | `node dist/server.js` | 1 | 0 | **Initially FAILED** — `schema.sql` missing from `dist` (L-10). Fixed and re-verified |
+| 2026-10-08 | 6 | HTTP routes (additions) | `npm test` | 2 | 0 | Notice acknowledgement required before connect; recorded template neither offered nor accepted for live runs (suite now 23) |
+| 2026-10-08 | 6 | security | `npm test` | 22 | 0 | Auth policy, anonymous Review Mode only, cookie flags, session rotation, logout, CSRF, rate limits, headers, log hygiene, Delete All Data, production config guard |
+| 2026-10-08 | 6 | auth bypass regression | `npm test` | 17 | 0 | Encoded, double-encoded, dot-segment, separator and matrix-param paths. **The pre-fix policy leaked protected GET routes** (L-21) |
+| 2026-10-08 | 6 | static serving | `npm test` | 7 | 0 | Index, assets, SPA fallback, JSON 404 for `/api`, path traversal refused, headers, missing-dist guard |
+| 2026-10-08 | 6 | mutation testing | scripted, 6 mutations | 6 caught | 0 missed | Removing CSRF, auth, live-run read guard, login rate limit, notice requirement, or logging the body each fails the suite |
+| 2026-10-08 | 6 | secret scan | `scripts/scan-secrets.mjs --history` | 1 | 0 | 95 tracked files + 13 commits clean. Positive control: 3 of 3 fabricated secrets detected |
+| 2026-10-08 | 6 | dependency audit | `npm audit --omit=dev` | 0 vulnerabilities | — | After upgrading `@fastify/static` 8 → 10.1.5 (HIGH) and Vitest 3 → 5 (critical, dev). 7 dev-only Tailwind 3 findings accepted (R-007) |
+| 2026-10-08 | 6 | container: boot guard | `docker run` without `DEMO_PASSWORD` | 1 | 0 | Exits 1 with the configuration error |
+| 2026-10-08 | 6 | container: hardened run | read-only root, cap-drop ALL, no-new-privileges | 7 checks | 0 | Frontend + JS served, anonymous sees Review Mode only, 401 on state change, cookie `HttpOnly; Secure; SameSite=Strict`, headers on static |
+| 2026-10-08 | 6 | container: browser under production CSP | headless Edge against the container | 11 checks | 0 | **0 CSP violations**, 0 console errors; sign-in, notice gate, Delete All Data, demo restored, sign-out |
+| 2026-10-08 | 6 | container: persistence | `docker restart` | 1 | 0 | Deletion record survives restart, seed does not re-run, WAL mode on the volume |
+| 2026-10-08 | 6 | container: data-dir ownership | root-owned bind mount, then `chown 1000:1000` | 2 | 0 | Root-owned → exits `unable to open database file`; chowned → healthy, HTTP 200, Docker HEALTHCHECK healthy. First attempt used a named volume and was invalid (L-22) |
 
-**105 tests total, 0 failing.** Pagination traversal is proven against SYNTHETIC multi-page
-fixtures only — real provider pagination remains unverified (T4).
-| 2026-10-07 | 4 | HTTP routes | `npm test` | 21 | 0 | Review Mode, Live Test connect, token never echoed/persisted, full fail->recheck->resolve->approve, sync failure isolation, recorded-run immutability |
-| 2026-10-07 | 4 | frontend wording gate | `npm test` | 9 | 0 | Scans apps/web/src for forbidden claims and browser-storage use; self-tests prove the scanner catches real use |
-| 2026-10-07 | 4 | browser: Review Mode | Edge headless, 390px + 1280px | 6 shots | 0 | No horizontal overflow at either width; 5 visual defects found and fixed (see LESSONS_LEARNED L-17) |
-| 2026-10-07 | 4 | browser: live end-to-end | Edge headless, test-only fake Ring server | 1 flow | 0 | NOT_STARTED -> PASS locked -> unlocked after sync -> FAIL -> recheck -> READY_TO_APPROVE -> READY. 0 console errors, 0 media calls, token absent from API log |
-| 2026-10-07 | 4 | built-artifact boot | `node dist/server.js` | 1 | 0 | Initially FAILED: schema.sql missing from dist (L-10). Fixed; built server boots, seeds and serves Review Mode |
+## Totals
 
-**135 automated tests, 0 failing**, plus browser walkthroughs. The browser live flow uses a
-test-only fake Ring server that serves the measured Day-1 shapes; it is not provider evidence.
+**183 automated tests, 0 failing** (13 suites), plus browser walkthroughs, container checks and a
+6-for-6 mutation check on the security guards.
 
-Bedrock (T9) and Strands (T10) have not been executed — no AWS account access yet (B-002).
-Ring results are real observations; failures and inconclusive results are recorded as such.
+## What these results do not prove
+
+- **Pagination** is proven against SYNTHETIC multi-page fixtures only; real provider pagination
+  remains unverified (T4, R-004).
+- The browser live flow uses a **test-only fake Ring server** serving the measured Day-1 shapes. It
+  proves our UI and pipeline, not Ring's behaviour.
+- **Bedrock (T9) and Strands (T10)** have not been executed — no AWS account access (B-002).
+- **Nothing has been deployed to AWS.** Container behaviour is verified locally in Docker Desktop.

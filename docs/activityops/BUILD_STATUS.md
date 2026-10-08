@@ -1,6 +1,7 @@
 # Build status
 
-Statuses: `NOT_STARTED` `IN_PROGRESS` `BLOCKED` `READY_FOR_REVIEW` `PASS` `FAIL` `DEFERRED`
+Statuses: `NOT_STARTED` `IN_PROGRESS` `BLOCKED` `READY_FOR_REVIEW` `PASS` `FAIL` `DEFERRED`, plus
+`PARTIAL` used only for the Day-1 gate verdict (spec sec. 21 asks for PASS / PARTIAL / BLOCKED).
 
 A phase becomes `PASS` only when its acceptance criteria **and** required tests are satisfied —
 never because code was written.
@@ -10,8 +11,9 @@ never because code was written.
 | Phase 0 — Foundation | PASS | Lead | 2026-10-07 | 2026-10-07 | 1 passing + boot check | `docs/activityops/*`, workspaces build | none |
 | Phase 1 — Day-1 gate | PARTIAL | Ring + AI/AWS | 2026-10-07 | 2026-10-07 (Ring part) | T1-T8 run | `evidence/day-1/T*.md` + 3 redacted captures | T5/T8 blocked by offline device (B-005); T9/T10 by AWS (B-002) |
 | Phase 2 — Domain model | PASS | Backend | 2026-10-07 | 2026-10-07 | 61 passing | `schema.sql`, `src/domain/*`, 4 suites | none |
-| Phase 3 — Ring evidence pipeline | PASS | Ring | 2026-10-07 | 2026-10-07 | 43 passing | `src/ring/*`, 3 suites, fixtures from the real capture | Provider pagination unverified (B-005/T4) |
-| Phase 4 — Core product UI | PASS | Frontend | 2026-10-07 | 2026-10-07 | 135 passing + browser e2e | routes, workflow, Review Mode seed, React UI, screenshots | API has no authentication yet (R-005, Phase 6) |
-| Phase 5 — AI operations agent | NOT_STARTED | AI/AWS | | | | | Waits on T9 Bedrock access |
-| Phase 6 — Security / privacy / deploy | NOT_STARTED | QA/DevOps | | | | | |
-| Phase 7 — Judge experience | NOT_STARTED | Lead | | | | | |
+| Phase 3 — Ring evidence pipeline | PASS | Ring | 2026-10-07 | 2026-10-07 | 43 passing | `src/ring/*`, 3 suites, fixtures from the real capture | Provider pagination unverified (R-004) |
+| Phase 4 — Core product UI | PASS | Frontend | 2026-10-07 | 2026-10-07 | 135 passing + browser e2e | routes, workflow, Review Mode seed, React UI, screenshots | none (R-005 closed in Phase 6a) |
+| Phase 5 — AI operations agent | BLOCKED | AI/AWS | | | | | No AWS account / Bedrock access (B-002) |
+| Phase 6a — Security, privacy, container | PASS | QA/DevOps | 2026-10-07 | 2026-10-08 | 183 passing; 6/6 mutations caught; container + browser checks | `src/security/*`, `src/http/security.ts`, `Dockerfile`, `docker-compose.yml`, `deploy/` | none |
+| Phase 6b — EC2 + EBS deployment | BLOCKED | QA/DevOps | 2026-10-08 | | Runbook steps verified in local Docker | `deploy/README.md` | No AWS account (B-002) |
+| Phase 7 — Judge experience | NOT_STARTED | Lead | | | | | Review Mode already built (Phase 4); README + judge test remain |

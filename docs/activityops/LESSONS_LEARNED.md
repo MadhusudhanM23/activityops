@@ -168,3 +168,55 @@ proceeded.
 ### L-20 — A history rewrite was blocked by the safety layer
 Removing a workflow file from git history (to push with a token lacking `workflow` scope) was refused
 as a destructive git operation. The clean fix — a correctly scoped token — is also the safer one.
+
+---
+
+## Phase 6
+
+### L-21 — An authentication bypass in my own code, found by reading a dependency advisory
+- **What happened:** the auth hook decided "is this an API route?" with `request.url.startsWith('/api/')`
+  on the raw URL. The router matches on the decoded path, so `GET /%61pi/templates` ran the
+  `/api/templates` handler while the hook classified it as a static file and skipped
+  authentication. Protected GET routes leaked to anonymous callers, and an encoded
+  `POST /%61pi/ring/disconnect` could have cleared a signed-in operator's Ring session.
+- **Why the destructive routes survived:** their handlers call `actor(request)`, which throws without
+  a session — defence in depth that happened to be in place, not by design for this attack.
+- **Caught by:** `npm audit` flagged "authorization bypass via non-canonical URL paths" in
+  `@fastify/static`. That advisory was about the dependency, but it described the same class of bug,
+  so I wrote 17 tests probing my own policy with encoded paths before changing anything.
+- **Fix:** policy keyed on the matched route (`request.routeOptions.url`); actors resolved before side
+  effects. The tests fail against the old policy and pass against the new one.
+- **Lesson:** never make an authorization decision on a different representation of the request
+  than the one the router uses. And read advisories for the *class* of bug, not just the package.
+
+### L-22 — A simulation that could not reproduce the condition, and a test with no exit
+- **What happened:** to prove "a root-owned EBS mount breaks SQLite", I `chown`ed a Docker named
+  volume to root and started the app. It worked fine — because Docker copies the image directory's
+  ownership onto an empty named volume when it is mounted, silently undoing the chown. The healthy
+  app then never exited, and the command, which expected a crash and had no timeout, hung for 10
+  minutes until the session ended.
+- **Fix:** reproduced with a real bind mount (which keeps host ownership, like EBS): root-owned ->
+  `unable to open database file`; after `chown 1000:1000` -> healthy. Every container probe now has a
+  timeout.
+- **Lesson:** check that a simulation actually produces the condition before trusting its result,
+  and give every "expect it to fail" probe a deadline.
+
+### L-23 — A major dependency upgrade nothing tested
+- **What happened:** `@fastify/static` went 8 -> 10 (breaking). All 176 tests still passed — because
+  none of them configured static serving at all.
+- **Fix:** 7 tests serving a real temporary dist directory, including path traversal.
+- **Lesson:** a green suite after an upgrade only means something if the suite exercises the upgraded
+  code. Check coverage of the thing you changed.
+
+### L-24 — Git Bash rewrote Docker arguments
+`--tmpfs /tmp` became a Windows path and Docker rejected it. `MSYS_NO_PATHCONV=1` disables the
+conversion for Docker commands.
+
+### L-25 — A 4-second rebuild proves nothing about what is inside
+After an interrupted session the image rebuilt instantly from cache. Rather than assume it held the
+upgraded dependencies, I read the versions inside the image: `@fastify/static` 10.1.5 and no dev
+dependencies present.
+
+### L-26 — Record counts written from memory were wrong
+Two per-suite test counts typed into TEST_RESULTS from memory were off by one. Recounted from the
+runner's JSON report and corrected. Numbers in records come from tools, not recollection.

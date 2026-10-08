@@ -7,9 +7,9 @@ immediately before uploading.
 - [ ] Ring technology used at runtime, not mocked
 - [ ] AWS Builder requirements satisfied
 - [ ] Public GitHub repository exists
-- [ ] Visible license, or configured private reviewer access
-- [ ] No secrets or tokens in git history or fixtures
-- [ ] Hosted judge Review Mode works without a token
+- [x] Visible license, or configured private reviewer access — MIT `LICENSE` committed
+- [x] No secrets or tokens in git history or fixtures — `scan-secrets.mjs --history` clean (2026-10-08); re-run before submitting
+- [ ] Hosted judge Review Mode works without a token — works locally and in the container; not yet hosted
 - [ ] Live Playground reconnect flow works
 - [ ] Testing instructions present ("Judge Test — 5 Minutes")
 - [ ] Public YouTube/Vimeo video, English, under 3 minutes
@@ -17,6 +17,6 @@ immediately before uploading.
 - [ ] Friction log submitted if genuine friction was encountered
 - [ ] AWS architecture described accurately
 - [ ] All demo data labelled SIMULATED or RECORDED DEMO
-- [ ] Privacy / delete controls demoable
+- [x] Privacy / delete controls demoable — verified in the production container (2026-10-08)
 - [ ] Organizer watermark question answered, or video adjusted to avoid the claim
 - [ ] Final submission uploaded before the Devpost deadline

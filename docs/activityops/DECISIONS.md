@@ -179,3 +179,58 @@ Browser end-to-end testing points the real API at a test-only fake Ring server i
 ## D-034 — 2026-10-07 — "Open Ring live view" URL is configuration
 The exact Playground live-view URL was not verified, so it is `VITE_RING_PLAYGROUND_URL`, defaulting
 to the official Ring developer portal rather than a guessed deep link.
+
+## D-035 — 2026-10-08 — One login; anonymous visitors get Review Mode only
+Spec sec. 14 allows a single demo identity and forbids implying two-person control. Spec sec. 28's
+judge flow starts with "open the hosted URL, choose Review Mode", so the recorded run is readable
+without signing in; every live run, template, device, incident list and every state change needs a
+session. Credentials for Live Test are published in the README for judges.
+
+## D-036 — 2026-10-08 — CSRF uses the synchronizer-token pattern
+The token is returned in the JSON body of login and `GET /api/session`, held in page memory only,
+and echoed in `X-CSRF-Token`. SameSite=Strict already blocks most cross-site requests; the token is
+required anyway because spec sec. 24 names CSRF protection explicitly.
+
+## D-037 — 2026-10-08 — Authorization policy is keyed on the matched route, never the raw URL
+The router decodes paths, so a check on the raw string can disagree with it. The first version did,
+and anonymous callers reached protected GET handlers through `/%61pi/...` (L-21). The hook now reads
+`request.routeOptions.url`; handlers also resolve the actor before any side effect, as a second line.
+
+## D-038 — 2026-10-08 — Sessions and rate limits live in memory
+Single instance by design (spec sec. 18), so no shared store is needed. A restart signs everyone out,
+which is acceptable for a demo and avoids persisting session secrets.
+
+## D-039 — 2026-10-08 — The privacy notice is generated from configuration
+`GET /api/privacy` states whether Ring-derived data goes to Bedrock based on whether a model is
+actually configured, so the notice cannot claim something the deployment does not do. Connecting
+Ring requires acknowledging it, and the acknowledgement is audited.
+
+## D-040 — 2026-10-08 — Delete All Data resets, then restores the published demo
+It ends the Ring connection, drops and rebuilds every table, writes one DELETE audit record (the
+"minimum deletion audit" of spec sec. 16), then re-seeds the recorded demo so Review Mode keeps
+working for other visitors to a shared hosted instance. The response and the UI say so.
+
+## D-041 — 2026-10-08 — Production refuses to boot without a strong password
+Missing, short (< 12) or the development value -> configuration error at startup. Verified in the
+real container image.
+
+## D-042 — 2026-10-08 — Dependency upgrades: @fastify/static 10.1.5, Vitest 5
+`@fastify/static` <= 10.1.1 carried HIGH advisories (path traversal, route-guard bypass); Vitest 3
+pulled a critical `tinypool` advisory. Both upgraded; static serving gained its own tests because no
+existing test exercised it (L-23).
+
+## D-043 — 2026-10-08 — Tailwind 3 dev-only advisories accepted for now (R-007)
+Seven findings (`braces`, `micromatch`, `chokidar`, `fast-glob`, `postcss-nested`,
+`postcss-selector-parser`, `tailwindcss`) sit in Tailwind 3's build-time file globbing. They never
+ship - verified that dev dependencies are absent from the image - and only ever process our own
+source paths. The fix is the Tailwind 4 migration, which changes ring/shadow/rounded semantics and
+needs full visual re-verification; deferred, not ignored.
+
+## D-044 — 2026-10-08 — Own secret scanner rather than a third-party action
+`scripts/scan-secrets.mjs` targets the credential shapes this project actually handled (Ring JWTs,
+GitHub tokens, AWS keys, Ring provider ids), recognises deliberately synthetic test values, scans
+full history, and prints locations only. Proven with a positive control before being trusted.
+
+## D-045 — 2026-10-08 — Phase 6 split into 6a (PASS) and 6b deployment (BLOCKED)
+Security, privacy and the container are complete and verified. Nothing has been deployed to AWS, so
+marking the whole phase PASS would misstate it.

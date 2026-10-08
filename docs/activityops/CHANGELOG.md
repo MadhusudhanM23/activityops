@@ -78,3 +78,26 @@
 - Incident route lacked the recorded-run guard (D-031, L-16).
 - Five visual defects found by screenshot review and fixed (L-17).
 - Added `LESSONS_LEARNED.md` collecting every mistake so far for the final write-up.
+
+## 2026-10-08 — Phase 6a (security, privacy, container) — PASS; Phase 6b deployment — BLOCKED
+- Authentication: single login, httpOnly + SameSite=Strict (+ Secure in production) session cookie,
+  rotated on login; anonymous visitors can read Review Mode only.
+- CSRF synchronizer token on every state change; rate limits on login, Ring connect, Ring sync and
+  Delete All Data; CSP and defensive headers; API responses never cached.
+- Production refuses to boot without a strong DEMO_PASSWORD.
+- Data-practices notice generated from real configuration; acknowledgement required and audited
+  before connecting Ring. Delete All Data with typed confirmation.
+- Frontend: sign-in, privacy page, Delete All Data, CSRF handling, sign-in prompts for live runs.
+- `app.ts` split into route modules with a shared context.
+- Dockerfile (non-root, dev deps pruned), Compose with Caddy, read-only root, all capabilities
+  dropped; EC2 + encrypted EBS runbook; Secrets Manager fetch script.
+- Secret scanner over tree and history; CI gains secret scan, production audit and container checks.
+- Upgrades: @fastify/static 10.1.5, Vitest 5. Production audit: 0 vulnerabilities.
+- 48 new tests (183 total, 0 failing). Mutation check: 6 of 6 guards caught.
+
+### Corrections made during Phase 6
+- **Authentication bypass via encoded paths in the first version of the policy** (D-037, L-21).
+- Ring disconnect cleared the token before resolving the actor; reordered.
+- `GET /api/privacy` was not public although the notice must be readable before sign-in.
+- First ownership simulation invalid (named volume); redone with a bind mount (L-22).
+- `TEST_RESULTS.md` table broken by an earlier update and two counts wrong; rewritten (L-26).

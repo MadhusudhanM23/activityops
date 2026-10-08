@@ -25,9 +25,10 @@ permission, and the video plan needs a fallback that avoids showing watermarked 
 CodeRabbit reviews pull requests on a hosted repository. Local git is initialized and
 `.coderabbit.yaml` is committed, but CodeRabbit cannot run until the repo is pushed to GitHub and
 the CodeRabbit app is installed on it.
-**Decided (2026-10-07):** a public GitHub repository will be created (the hackathon requires one).
-Pending: repo URL, `git push`, and installing the CodeRabbit app on it. Until then each phase is
-self-reviewed by the Lead against the spec.
+**Status (2026-10-08):** the public repository exists (`MadhusudhanM23/activityops`) but the first push
+was rejected: the supplied token lacks the `workflow` scope needed to push `.github/workflows/ci.yml`.
+**Needed:** revoke the token that was pasted into the chat and issue one with `repo` + `workflow`.
+Then install the CodeRabbit app. Until then each phase is self-reviewed by the Lead against the spec.
 
 ## R-001 — Schedule risk
 16 calendar days to 23 October 2026. Cut order is fixed and recorded in `PHASE_PLAN.md`.
@@ -75,12 +76,22 @@ abort, stop-at-older, missing-`links` end-of-list, idempotent upsert).
 no assumption that `links` exists, and a capped traversal explicitly cannot produce coverage.
 **Retire by:** re-running T4 once the account holds enough events to span pages (depends on B-005).
 
-## R-005 — HIGH — The API has no authentication yet
+## R-005 — CLOSED (2026-10-08) — The API had no authentication
 Every route currently acts as a single demo identity. That is acceptable on a developer machine and
 unacceptable on a public URL: anyone could attest, approve, or connect a token.
-**Must be closed in Phase 6 before any deployment** (session cookie, CSRF, rate limiting on Ring sync
-and connect, spec sec. 24).
+**Closed in Phase 6a:** session cookie, CSRF, rate limiting, route-keyed authorization policy, and 39
+security and bypass-regression tests (D-035 to D-038).
 
 ## R-006 — The Playground live-view deep link is unverified
 "Open Ring live view" links to the Ring developer portal by default (D-034). Confirm the real
 Playground URL during the next live session and set `VITE_RING_PLAYGROUND_URL`.
+
+## R-007 — ACCEPTED — Dev-only advisories in the Tailwind 3 toolchain
+Seven npm advisories (5 high, 2 moderate) in Tailwind 3's build-time globbing dependencies. They are
+not in the production image (verified) and only process this repository's own files. Production
+dependencies audit clean. **Retire by** migrating to Tailwind 4 with a full visual re-check (D-043).
+
+## R-008 — Deployment has never run on AWS
+Every container behaviour in the runbook is verified locally, including the EBS ownership step, but
+an EC2 deployment can still surface DNS, certificate, security-group or IAM issues. Budget a day on
+the schedule's Oct 18 slot once AWS access exists (B-002).
