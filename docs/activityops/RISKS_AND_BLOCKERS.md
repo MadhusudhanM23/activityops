@@ -12,6 +12,9 @@ T1-T8 were run against the live Playground API on 2026-10-07 and the results are
 ## B-002 — OPEN — AWS account / Bedrock access not confirmed
 T9 and T10 need: region, an explicitly chosen model id, FTU use-case form status for Anthropic
 models, IAM Marketplace permissions, and observed quota. Phase 5 must not start before this.
+**Status (2026-10-09):** AWS sign-in fails with "Bad request"; the user has contacted AWS Support.
+The Strands + Bedrock integration is implemented and tested offline, and `npm run ai:smoke` is ready
+to run T9/T10 the moment access returns. What remains blocked is only real invocation and hosting.
 **Status (2026-10-07):** no AWS account available yet. T9/T10 and Phase 5 stay BLOCKED. Bedrock
 access must be arranged before Oct 14 (the plan date for the Strands/Bedrock handover) or the AI
 copilot is at risk; the cut order does not permit cutting the Bedrock agent entirely, since the

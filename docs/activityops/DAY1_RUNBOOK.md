@@ -137,6 +137,19 @@ observe quota/throttling. **Do not assume Claude is available.**
 Implement one minimal read-only tool (`getVerificationRun`), invoke it through Strands, return the
 result to the model. If Strands blocks progress, switch to direct Bedrock tool use immediately.
 
+**Harness ready (2026-10-09):** both T9 and T10 run with one command once AWS access exists:
+
+```bash
+# sign in first in your own terminal (e.g. aws configure sso) - never paste keys anywhere
+AWS_REGION=us-east-1 BEDROCK_MODEL_ID=<id> npm run ai:smoke --workspace apps/api
+AWS_REGION=us-east-1 BEDROCK_MODEL_ID=<id> AI_RUNTIME=bedrock-converse npm run ai:smoke --workspace apps/api
+```
+
+- **T9 passes** when the status is `COMPLETED` (invocation, region, model access, FTU all proven).
+- **T10 passes** when the tool trace lists at least one `ok` tool call under `runtime: strands`.
+- A failure prints its kind and the next step. Record the result, timing and any throttling in
+  `evidence/day-1/T9-bedrock.md` and `T10-strands.md` — redacted, no account ids.
+
 ---
 
 ## Reporting back

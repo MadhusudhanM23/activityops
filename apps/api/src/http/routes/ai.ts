@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { rows } from '../../db/query.js';
-import { runAgent, type ModelClient } from '../../ai/agent.js';
+import { classifyAiError } from '../../ai/errors.js';
+import type { AiRuntime } from '../../ai/runtime.js';
 import { nextActions } from '../../ai/nextActions.js';
 import { RATE_RULES } from '../../security/rateLimit.js';
 import { presentRun } from '../present.js';
@@ -27,7 +28,7 @@ const askBody = z.object({
 
 const runParam = z.object({ runId: z.string().min(1) });
 
-export function aiRoutes(app: FastifyInstance, ctx: AppContext, model: ModelClient | null): void {
+export function aiRoutes(app: FastifyInstance, ctx: AppContext, model: AiRuntime | null): void {
   const { db } = ctx;
 
   app.post('/api/ai/ask', async (request, reply) => {
@@ -62,10 +63,22 @@ export function aiRoutes(app: FastifyInstance, ctx: AppContext, model: ModelClie
       if (!incident) return reply.status(404).send({ error: 'NOT_FOUND', message: 'No such incident on this run.' });
     }
 
-    const result = await runAgent(model, { db, runId: body.runId, now: ctx.now() }, body.task, {
-      incidentId: body.incidentId,
-      now: ctx.now,
-    });
+    let result;
+    try {
+      result = await model.run({ db, runId: body.runId, now: ctx.now() }, body.task, {
+        incidentId: body.incidentId,
+        now: ctx.now,
+      });
+    } catch (error) {
+      const unavailable = classifyAiError(error);
+      // Log the kind only: never the AWS error text, which can carry account ids and ARNs.
+      request.log.warn({ aiUnavailable: unavailable.kind, runtime: model.runtime }, 'AI request failed');
+      return reply.status(503).send({
+        error: 'AI_UNAVAILABLE',
+        reason: unavailable.kind,
+        message: `${unavailable.message} Readiness and every recorded check are unaffected.`,
+      });
+    }
 
     // Only a completed note is kept (spec sec. 16: generated notes may be retained
     // as operational records; raw prompts never are). It is covered by Delete All Data.

@@ -126,3 +126,14 @@
 - Run view carries deterministic "What should I do next?" actions; copilot panel in the UI.
 - 26 new tests (209 total); 6/6 AI mutations caught.
 - Not done, blocked on AWS access: Bedrock adapter, Strands, T9, T10.
+
+## 2026-10-09 — Phase 5: real Bedrock integration (offline-verified)
+- Strands Agents for TypeScript runtime with `BedrockModel`; direct Bedrock Converse fallback;
+  both behind `AiRuntime`, selected by `AI_RUNTIME`, sharing tools, prompt, step limit and guard.
+- Credentials from the AWS SDK default chain only; AI off unless model id and region are set.
+- Seven safe failure kinds; route returns `503 AI_UNAVAILABLE` with the kind; readiness untouched.
+- Hard timeout; retries off; refused tool calls recorded in the trace.
+- `npm run ai:smoke` harness for T9/T10; README and deploy runbook instructions (incl. the
+  `InvokeModelWithResponseStream` permission Strands needs).
+- zod upgraded to 4 (Strands peer). 38 new tests (247 total); 7/7 mutations caught.
+- **Not done:** any call to real Bedrock — blocked on AWS account access (B-002).

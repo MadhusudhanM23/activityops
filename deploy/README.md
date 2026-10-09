@@ -31,7 +31,21 @@ Attach a role to the instance (no access keys anywhere on the host) with:
 
 - `secretsmanager:GetSecretValue` on the `activityops/production` secret ARN only;
 - `AmazonSSMManagedInstanceCore`, so the host is reached through Session Manager instead of SSH;
-- later, for Phase 5: `bedrock:InvokeModel` on the one model ARN chosen in Day-1 T9.
+- for the AI copilot: `bedrock:InvokeModel` **and** `bedrock:InvokeModelWithResponseStream` on the
+  one model (or inference profile) chosen in Day-1 T9. The Strands runtime uses the streaming
+  Converse API, which needs the second action; the `bedrock-converse` fallback needs only the first.
+  The first invocation of an Anthropic model may also need `aws-marketplace:ViewSubscriptions` and
+  `aws-marketplace:Subscribe` (spec sec. 0A) — verify in T9.
+
+The app never holds AWS keys: the AWS SDK picks up the instance role automatically. To enable the
+copilot, add to `.env.production` (not secrets — plain configuration):
+
+```
+AWS_REGION=us-east-1
+BEDROCK_MODEL_ID=<model or inference-profile id verified with npm run ai:smoke>
+```
+
+Without them the copilot stays off and the rest of the app is unaffected.
 
 ## 3. Instance and network
 

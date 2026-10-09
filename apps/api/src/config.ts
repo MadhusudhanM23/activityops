@@ -42,8 +42,17 @@ const schema = z
     TRUST_PROXY: flag,
 
     RING_API_BASE_URL: z.string().optional(),
+
+    // AI copilot (spec sec. 17). Nothing is assumed about the account: with no
+    // model id the copilot is off. Credentials are NEVER configured here - the
+    // AWS SDK default chain supplies them (a temporary session locally, the EC2
+    // instance role in production).
     AWS_REGION: z.string().optional(),
     BEDROCK_MODEL_ID: z.string().optional(),
+    /** strands (preferred) | bedrock-converse (fallback) | off */
+    AI_RUNTIME: z.enum(['strands', 'bedrock-converse', 'off']).optional(),
+    AI_MAX_TOKENS: z.coerce.number().int().min(256).max(8192).default(2048),
+    AI_TIMEOUT_MS: z.coerce.number().int().min(5000).max(300000).default(60000),
   })
   .transform((env, context) => {
     const production = env.NODE_ENV === 'production';
@@ -59,8 +68,19 @@ const schema = z
       return z.NEVER;
     }
 
+    const aiRuntime = env.AI_RUNTIME ?? (env.BEDROCK_MODEL_ID ? 'strands' : 'off');
+    if (aiRuntime !== 'off' && (!env.BEDROCK_MODEL_ID || !env.AWS_REGION)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['BEDROCK_MODEL_ID'],
+        message: `AI_RUNTIME=${aiRuntime} needs both BEDROCK_MODEL_ID and AWS_REGION (or set AI_RUNTIME=off).`,
+      });
+      return z.NEVER;
+    }
+
     return {
       ...env,
+      AI_RUNTIME: aiRuntime,
       DEMO_PASSWORD: password,
       COOKIE_SECURE: env.COOKIE_SECURE ?? production,
       TRUST_PROXY: env.TRUST_PROXY ?? production,

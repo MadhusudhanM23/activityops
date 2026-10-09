@@ -87,7 +87,7 @@ flowchart LR
   end
   UI -- "HTTPS, session cookie,<br/>CSRF token" --> Caddy
   App -- "server-to-server<br/>Bearer token (memory only)" --> Ring[Ring Partner API<br/>devices, status, Event History]
-  App -. "Phase 5 (pending)" .-> Bedrock[Amazon Bedrock]
+  App -. "Strands Agents<br/>(read-only tools)" .-> Bedrock[Amazon Bedrock]
   SM[AWS Secrets Manager] -. "IAM instance role" .-> App
 ```
 
@@ -116,7 +116,7 @@ flowchart LR
 | Ring media / snapshot APIs | — | **Deliberately never called** by the readiness workflow |
 | Amazon EC2 + encrypted Amazon EBS + Docker Compose + Caddy | Hosting; SQLite on a persistent encrypted volume | Container stack built and verified locally; **not yet deployed** |
 | IAM instance role, AWS Secrets Manager | No long-lived keys on the host; password from Secrets Manager | Runbook and script written; **not yet deployed** |
-| Amazon Bedrock, Strands Agents | Read-only operations copilot drafting handover notes and incident summaries | **Model not yet connected** — awaiting access. The tool layer, injection defences and agent loop are built and tested against a scripted model |
+| Amazon Bedrock, Strands Agents for TypeScript | Read-only operations copilot drafting handover notes and incident summaries | **Implemented; not yet run against real Bedrock** — tested offline with the real Strands loop and a scripted model; awaiting AWS account access |
 | Amazon CloudWatch | Log shipping | Logs proven free of secrets; not yet connected |
 
 ## Privacy and data handling
@@ -154,13 +154,14 @@ Stated plainly, so nothing here is mistaken for something it is not:
 
 - **Not yet hosted.** The deployment is designed and verified in local Docker, but no AWS account was
   available during the build, so there is no public URL yet.
-- **No AI-generated notes yet.** No Amazon Bedrock model is connected — model access was not
-  available. Everything around the model is built and tested: ten read-only tools scoped to one run,
-  untrusted-text handling, a bounded agent loop, and an output check that withholds any draft
-  claiming detection or a clear or safe site. Of the four copilot requests, *Why are we not ready?*
-  and *What should I do next?* work today because the spec requires them to be deterministic;
-  *handover note* and *incident summary* return "not enabled" until a model is connected. Review
-  Mode therefore has no AI handover artifact.
+- **The Bedrock integration has not yet run against real Bedrock.** The Strands Agents + Amazon
+  Bedrock runtime (and a direct Bedrock Converse fallback) is implemented and tested offline: the
+  real Strands agent loop runs against a scripted model, the Converse adapter against a stubbed
+  client, and the real AWS SDK credential chain was exercised on a machine with no credentials
+  (clean "no credentials" response). Whether a Claude model is invocable from our AWS account (Day-1
+  T9) and whether tool use works there (T10) is **unverified** — AWS account access was unavailable.
+  Until then the hosted copilot runs with AI off: *Why are we not ready?* and *What should I do
+  next?* still work (they are deterministic by design), and Review Mode has no AI handover artifact.
 - **The Playground device was offline** throughout testing, so no fresh live-view session could be
   generated. The recorded run uses the one real session record that was captured.
 - **Unmeasured timing.** Provider indexing delay could not be measured, so the post-window wait
@@ -189,7 +190,7 @@ Open <http://localhost:5173> — use `localhost`, not `127.0.0.1`: the Vite dev 
 IPv6 only. Review Mode works immediately; sign in with the local credentials above for Live Test.
 
 ```bash
-npm test               # 209 tests
+npm test               # 247 tests, no AWS credentials needed
 npm run typecheck
 node scripts/scan-secrets.mjs --history
 ```
@@ -203,6 +204,26 @@ docker run --rm -p 8080:8080 -e DEMO_PASSWORD='<12+ characters>' -v activityops-
 
 AWS deployment: [`deploy/README.md`](deploy/README.md).
 
+### Testing the AI copilot with real Amazon Bedrock
+
+1. In the Bedrock console, enable a model for your region (Anthropic models need the one-time
+   use-case form) and copy its exact model or inference-profile id.
+2. Sign in **in your own terminal** with short-lived credentials, e.g. `aws configure sso`. Never put
+   keys in `.env`, in the repository, or in a chat.
+3. Run one real handover against the recorded demo run:
+
+   ```bash
+   AWS_REGION=us-east-1 BEDROCK_MODEL_ID=<model id> npm run ai:smoke --workspace apps/api
+   ```
+
+   It prints the runtime, status, tool trace and note — or the failure kind with the next step
+   (`NO_CREDENTIALS`, `ACCESS_DENIED`, `MODEL_NOT_FOUND`, `THROTTLED`, …). `AI_RUNTIME=bedrock-converse`
+   runs the direct-Converse fallback instead of Strands.
+4. To use it in the app, start the API with the same two variables set.
+
+In production the EC2 instance role supplies credentials (see the deploy runbook); nothing is
+configured as a secret for AI.
+
 ### Configuration
 
 All settings are environment variables, documented in [`.env.example`](.env.example). The ones that
@@ -215,7 +236,8 @@ matter most:
 | `RING_API_BASE_URL` | Ring Partner API base (`https://api.amazonvision.com`) |
 | `SESSION_WINDOW_SECONDS` / `DEMO_SESSION_WINDOW_SECONDS` | How long after arming a session can count (600 / 300) |
 | `CLOCK_SKEW_ALLOWANCE_SECONDS` | Grace before arming, for clock mismatch only (30) |
-| `BEDROCK_MODEL_ID`, `AWS_REGION` | AI assistant — unset until model access is confirmed |
+| `BEDROCK_MODEL_ID`, `AWS_REGION` | AI copilot model and region. Unset = AI off. A model id without a region refuses to start |
+| `AI_RUNTIME` | `strands` (default when a model is set), `bedrock-converse` (fallback) or `off` |
 
 ## How this was built
 

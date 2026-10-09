@@ -250,3 +250,29 @@ the Playground UI that was open), and that live view was "used" (never exercised
 corrected before anything was published.
 - **Lesson:** a claim becomes more dangerous the more often it is repeated, because repetition feels
   like verification. Re-derive anything that is about to leave the team.
+
+---
+
+## Phase 5 (Bedrock integration)
+
+### L-29 — A test double that was too helpful
+- **What happened:** the HTTP failure test used a fake runtime that threw an already-sanitised error.
+  The route's own sanitising was never exercised, so logging raw AWS error text (account ids, ARNs)
+  would not have been caught.
+- **Caught by:** mutation testing — the "log the raw error" mutation survived.
+- **Fix:** the fake now throws the raw AWS-shaped error, so the route must do the sanitising.
+- **Lesson:** a test double should be at least as hostile as the real dependency, not friendlier.
+
+### L-30 — An optional peer dependency that npm still enforces
+Strands marks zod as an optional peer, but npm refused to install it beside zod 3. Forcing it would
+have broken `npm ci` everywhere else; upgrading zod was the honest fix (D-055).
+
+### L-31 — Read the SDK, then prove it, before integrating
+The Strands API was learned from its type definitions and README, then confirmed by a throwaway
+probe against the real package (scripted model, JSON-schema tool, unknown tool name) before any
+project code was written. The probe also showed that the SDK has no step limit and checks
+cancellation only between steps — both of which needed handling (D-059).
+
+### L-32 — Windows Node cannot read Git Bash's /tmp
+A shell script wrote to `/tmp` and a Node one-liner failed to read it back. Scratch files now live in
+the session scratchpad with a Windows path.

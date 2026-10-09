@@ -8,7 +8,8 @@ import { migrate } from './db/migrate.js';
 import { openDatabase } from './db.js';
 import type { AppContext, HttpSettings } from './http/context.js';
 import { errorHandler } from './http/errors.js';
-import type { ModelClient } from './ai/agent.js';
+import { createAiRuntime } from './ai/factory.js';
+import type { AiRuntime } from './ai/runtime.js';
 import { aiRoutes } from './http/routes/ai.js';
 import { dataRoutes } from './http/routes/data.js';
 import { ringRoutes } from './http/routes/ring.js';
@@ -29,10 +30,10 @@ export interface AppDeps {
   now: () => Date;
   settings: HttpSettings;
   /**
-   * The model behind the copilot, or null. No Bedrock adapter exists yet (Phase 5
-   * waits on model access, B-002), so production runs with null.
+   * The AI runtime behind the copilot, or null when it is off. Defaults to the
+   * one built from configuration (Strands + Bedrock, or the Converse fallback).
    */
-  model: ModelClient | null;
+  ai: AiRuntime | null;
   /** Drives the privacy notice wording. Defaults to whether a model is present. */
   aiEnabled: boolean;
   /** Captures log output. Tests use it to prove secrets never reach the logs. */
@@ -91,7 +92,7 @@ export async function buildApp(overrides: Partial<AppDeps> = {}): Promise<Fastif
   sessionRoutes(app, ctx);
   runRoutes(app, ctx);
   ringRoutes(app, ctx);
-  const model = overrides.model ?? null;
+  const model = overrides.ai !== undefined ? overrides.ai : createAiRuntime(config);
   aiRoutes(app, ctx, model);
   // The notice reflects whether AI actually runs, not whether a model id is configured:
   // an id with no working client must not make the notice claim data goes to Bedrock.

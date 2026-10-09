@@ -272,3 +272,41 @@ configured id without a working client cannot make the notice claim that data go
 Withheld or incomplete drafts are discarded. A saved note keeps its text, model id, requester and
 tool trace (names, times, result summaries) - never the system prompt, the instruction, or model
 reasoning. Covered by Delete All Data.
+
+## D-053 — 2026-10-09 — Strands Agents for TypeScript is the primary AI runtime
+`StrandsRuntime` registers the same ten read-only tools as JSON-schema tools (no zod-defined schemas
+needed) and drives `BedrockModel`. Verified first in a scratch probe that the real SDK loop works
+with a scripted model and refuses unregistered tool names itself.
+
+## D-054 — 2026-10-09 — Direct Bedrock Converse kept as the spec's fallback, behind one interface
+`AiRuntime` has two implementations: `StrandsRuntime` and `ConverseRuntime` (our existing loop over
+`BedrockConverseClient`). `AI_RUNTIME` selects; both share the system prompt, tools, step limit and
+the single `finalise` output guard, so a safety check cannot exist in one path only.
+
+## D-055 — 2026-10-09 — zod upgraded to 4 instead of forcing peer resolution
+Strands declares zod ^4.1.12. `--legacy-peer-deps` would hide the mismatch and break `npm ci` in CI
+and Docker. One API rename was needed; all tests passed.
+
+## D-056 — 2026-10-09 — AI is off unless a model id AND region are configured
+No assumption about account access (spec sec. 17). A model id without a region refuses to start.
+Construction makes no AWS call, so a server without credentials starts and reports NO_CREDENTIALS
+on the first copilot request.
+
+## D-057 — 2026-10-09 — Credentials only from the AWS SDK default chain
+Locally a short-lived CLI session; in production the EC2 instance role. ActivityOps never reads,
+stores, logs or returns a credential, and `.env.example` says not to put keys there.
+
+## D-058 — 2026-10-09 — AI failures are classified to seven safe kinds; only the kind is logged
+NO_CREDENTIALS, ACCESS_DENIED, MODEL_NOT_FOUND, THROTTLED, NETWORK, TIMEOUT, PROVIDER_ERROR, found by
+walking the error `cause` chain (Strands wraps AWS errors). The client gets a fixed sentence; AWS
+error text, which can carry account ids and ARNs, never leaves the server.
+
+## D-059 — 2026-10-09 — A hard wall-clock timeout on the Strands run, retries off
+Strands checks cancellation only between steps, so a stalled stream would ignore an abort. The run
+races a timer (AI_TIMEOUT_MS, default 60 s). Retries are off because this runs inside an HTTP
+request; the user can retry.
+
+## D-060 — 2026-10-09 — `npm run ai:smoke` is the T9/T10 harness
+One real handover against the recorded demo run through the server's own runtime, printing status,
+trace and note, or the failure kind and next step. It also flags a run in which no tool was called,
+so T10 cannot be claimed from a text-only reply.

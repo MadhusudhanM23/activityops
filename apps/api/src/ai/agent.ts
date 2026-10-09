@@ -88,9 +88,41 @@ export interface AgentResult {
   modelId: string;
 }
 
-const MAX_STEPS = 8;
+export const MAX_STEPS = 8;
 
-function summarise(outcome: ReturnType<typeof runTool>): string {
+/** How the model's turn ended, independent of provider vocabulary. */
+export type Ending = 'FINISHED' | 'TRUNCATED' | 'DECLINED' | 'STEP_LIMIT';
+
+/**
+ * The single place a model's final text becomes a result. Both runtimes (the
+ * Converse loop below and Strands) go through it, so the output guard cannot be
+ * applied in one path and forgotten in the other.
+ */
+export function finalise(text: string, ending: Ending, trace: TraceEntry[], modelId: string): AgentResult {
+  if (ending === 'DECLINED') {
+    return { status: 'WITHHELD', text: 'The model declined to produce this note.', trace, modelId };
+  }
+  if (ending === 'STEP_LIMIT') {
+    return { status: 'INCOMPLETE', text: `The assistant stopped after ${MAX_STEPS} steps without finishing. Nothing was saved.`, trace, modelId };
+  }
+  if (UNSUPPORTABLE.some((pattern) => pattern.test(text))) {
+    return {
+      status: 'WITHHELD',
+      text: 'This draft was withheld because it made a claim the Ring evidence cannot support (for example that a person was detected or a site was clear). Nothing was saved.',
+      trace,
+      modelId,
+    };
+  }
+  if (!text) return { status: 'INCOMPLETE', text: 'The model returned no text.', trace, modelId };
+  return { status: ending === 'TRUNCATED' ? 'INCOMPLETE' : 'COMPLETED', text, trace, modelId };
+}
+
+/** Builds the fixed instruction for a task. Only the task and a validated id vary. */
+export function instructionFor(task: AgentTask, incidentId?: string): string {
+  return task === 'INCIDENT_SUMMARY' ? `${TASK_INSTRUCTIONS[task]}\nincidentId: ${incidentId ?? 'none'}` : TASK_INSTRUCTIONS[task];
+}
+
+export function summarise(outcome: ReturnType<typeof runTool>): string {
   if (!outcome.ok) return outcome.error;
   const result = outcome.result;
   if (Array.isArray(result)) return `${result.length} item(s)`;
@@ -110,8 +142,7 @@ export async function runAgent(
   const clock = options.now ?? (() => new Date());
   // The only text a user influences is which task and which id - both validated
   // by the route. Nothing free-form enters the instruction.
-  const instruction =
-    task === 'INCIDENT_SUMMARY' ? `${TASK_INSTRUCTIONS[task]}\nincidentId: ${options.incidentId ?? 'none'}` : TASK_INSTRUCTIONS[task];
+  const instruction = instructionFor(task, options.incidentId);
 
   const messages: ModelMessage[] = [{ role: 'user', content: [{ text: instruction }] }];
   const trace: TraceEntry[] = [];
@@ -125,25 +156,13 @@ export async function runAgent(
         .map((block) => ('text' in block ? block.text : ''))
         .join('\n')
         .trim();
-
-      if (response.stopReason === 'guardrail_intervened' || response.stopReason === 'content_filtered') {
-        return { status: 'WITHHELD', text: 'The model declined to produce this note.', trace, modelId: model.modelId };
-      }
-      if (UNSUPPORTABLE.some((pattern) => pattern.test(text))) {
-        return {
-          status: 'WITHHELD',
-          text: 'This draft was withheld because it made a claim the Ring evidence cannot support (for example that a person was detected or a site was clear). Nothing was saved.',
-          trace,
-          modelId: model.modelId,
-        };
-      }
-      if (!text) return { status: 'INCOMPLETE', text: 'The model returned no text.', trace, modelId: model.modelId };
-      return {
-        status: response.stopReason === 'max_tokens' ? 'INCOMPLETE' : 'COMPLETED',
-        text,
-        trace,
-        modelId: model.modelId,
-      };
+      const ending =
+        response.stopReason === 'guardrail_intervened' || response.stopReason === 'content_filtered'
+          ? 'DECLINED'
+          : response.stopReason === 'max_tokens'
+            ? 'TRUNCATED'
+            : 'FINISHED';
+      return finalise(text, ending, trace, model.modelId);
     }
 
     const results: ContentBlock[] = [];
@@ -163,10 +182,5 @@ export async function runAgent(
     messages.push({ role: 'user', content: results });
   }
 
-  return {
-    status: 'INCOMPLETE',
-    text: `The assistant stopped after ${MAX_STEPS} steps without finishing. Nothing was saved.`,
-    trace,
-    modelId: model.modelId,
-  };
+  return finalise('', 'STEP_LIMIT', trace, model.modelId);
 }

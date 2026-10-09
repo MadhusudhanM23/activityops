@@ -4,6 +4,7 @@ import { buildApp } from '../../src/app.js';
 import { migrate } from '../../src/db/migrate.js';
 import type { HttpSettings } from '../../src/http/context.js';
 import type { ModelClient } from '../../src/ai/agent.js';
+import { ConverseRuntime, type AiRuntime } from '../../src/ai/runtime.js';
 import { RingClient } from '../../src/ring/client.js';
 import { RingTokenStore } from '../../src/ring/tokenStore.js';
 import { realDeviceList, stubFetch } from '../fixtures/ring.js';
@@ -53,7 +54,7 @@ export interface Harness {
 }
 
 export async function makeHarness(
-  options: { login?: boolean; aiEnabled?: boolean; logStream?: NodeJS.WritableStream; model?: ModelClient } = {},
+  options: { login?: boolean; aiEnabled?: boolean; logStream?: NodeJS.WritableStream; model?: ModelClient; ai?: AiRuntime } = {},
 ): Promise<Harness> {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON;');
@@ -69,7 +70,7 @@ export async function makeHarness(
     ringClient: new RingClient({ baseUrl: 'https://api.example.invalid', tokenProvider: tokenStore, fetchImpl: impl }),
     now: () => clock.now,
     settings: testSettings,
-    model: options.model ?? null,
+    ai: options.ai ?? (options.model ? new ConverseRuntime(options.model, 'test') : null),
     ...(options.aiEnabled !== undefined ? { aiEnabled: options.aiEnabled } : {}),
     ...(options.logStream ? { logStream: options.logStream } : {}),
   });
