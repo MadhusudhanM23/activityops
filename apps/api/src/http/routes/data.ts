@@ -9,9 +9,7 @@ import { type AppContext, actor, withinLimit } from '../context.js';
 export const DELETE_CONFIRMATION = 'DELETE ALL DATA';
 
 const deleteBody = z.object({
-  confirm: z.literal(DELETE_CONFIRMATION, {
-    errorMap: () => ({ message: `Type ${DELETE_CONFIRMATION} to confirm.` }),
-  }),
+  confirm: z.literal(DELETE_CONFIRMATION, { error: `Type ${DELETE_CONFIRMATION} to confirm.` }),
 });
 
 /**

@@ -22,7 +22,7 @@ const connectBody = z.object({
   token: z.string().trim().min(20).max(8192),
   // Spec sec. 16: the data-practices notice is shown before any Ring data is processed.
   noticeAcknowledged: z.literal(true, {
-    errorMap: () => ({ message: 'The data-practices notice must be acknowledged before connecting Ring.' }),
+    error: 'The data-practices notice must be acknowledged before connecting Ring.',
   }),
 });
 
