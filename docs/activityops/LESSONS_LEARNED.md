@@ -276,3 +276,9 @@ cancellation only between steps — both of which needed handling (D-059).
 ### L-32 — Windows Node cannot read Git Bash's /tmp
 A shell script wrote to `/tmp` and a Node one-liner failed to read it back. Scratch files now live in
 the session scratchpad with a Windows path.
+
+### L-33 — A failing container that was my test, not the app
+A hardened container run reported unhealthy: `unable to open database file`. The command used a
+read-only root filesystem but omitted the `/data` volume, so SQLite had nowhere to write. Every
+earlier run and the Compose file mount it. Reading the container log before concluding anything
+settled it in one step; the fail-fast at startup is the correct behaviour.

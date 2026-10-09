@@ -41,11 +41,13 @@
 | 2026-10-09 | 5 | AI runtimes (Strands + Converse) | `npm test`, real Strands loop + scripted model, stubbed Bedrock client | 38 | 0 | Prompt/instruction/tool set reach the model unchanged; untrusted placement; write tool refused; output guard on both paths; step limit; hard timeout on a stalled provider; error classification incl. cause chains; config; HTTP 503 path with readiness unchanged |
 | 2026-10-09 | 5 | AI runtime mutation testing | scripted, 7 mutations | 7 caught | 0 missed | **First run missed one** — the fake runtime pre-sanitised its error, so raw AWS text in logs went undetected. Test fixed (L-29) |
 | 2026-10-09 | 5 | real SDK, no credentials | built server + `npm run ai:smoke`, AI configured, no AWS credentials | 2 | 0 | Real BedrockModel + AWS SDK credential chain → `503 NO_CREDENTIALS` in ~3 s; log holds the kind only. **Not** evidence that Bedrock access works |
+| 2026-10-09 | 5 | container with AI configured, no credentials | hardened `docker run` + /data volume | 4 checks | 0 | Healthy; handover → 503 NO_CREDENTIALS; deterministic answers 200; Docker HEALTHCHECK healthy; no AWS detail in logs. Image 372 → 418 MB with Strands + AWS SDK. First attempt omitted the volume (L-33) |
+| 2026-10-09 | 5 | evidence redaction | `npm test` | 10 | 0 | Real CLI: secrets, JWTs, ids in URLs, consistent aliases, non-JSON refused; raw captures and .env git-ignored |
 | — | 5 | T9 / T10 real Bedrock | `npm run ai:smoke` | — | — | **BLOCKED** — AWS account access unavailable (B-002) |
 
 ## Totals
 
-**247 automated tests, 0 failing** (15 suites), plus browser walkthroughs, container checks and mutation
+**257 automated tests, 0 failing** (16 suites), plus browser walkthroughs, container checks and mutation
 checks on the security guards (6/6) and the AI defences (6/6 + 7/7).
 
 ## What these results do not prove
