@@ -1,7 +1,9 @@
 import { useEffect, useId, useState } from 'react';
+import { Link2, Link2Off, Timer } from 'lucide-react';
 import type { RingStatus } from '../types.js';
 import { ApiError, api } from '../api.js';
-import { Badge, Button, Card, ErrorNote, formatTime } from '../ui.js';
+import { useToast } from '../toast.js';
+import { Badge, Button, Card, CardHeader, ErrorNote, cx, formatTime } from '../ui.js';
 
 /**
  * Live Test Mode connection (spec sec. 19).
@@ -13,6 +15,7 @@ import { Badge, Button, Card, ErrorNote, formatTime } from '../ui.js';
 export function RingConnect({ onConnected }: { onConnected: (templateId: string) => void }) {
   const inputId = useId();
   const noticeId = useId();
+  const notify = useToast();
   const [acknowledged, setAcknowledged] = useState(false);
   const [status, setStatus] = useState<RingStatus | null>(null);
   const [token, setToken] = useState('');
@@ -44,15 +47,19 @@ export function RingConnect({ onConnected }: { onConnected: (templateId: string)
       const result = await api.ringConnect(submitted);
       setDiscovered({ count: result.devicesDiscovered, devices: result.devices });
       setStatus(await api.ringStatus());
+      notify('Ring Playground connected', {
+        body: `${result.devicesDiscovered} ${result.devicesDiscovered === 1 ? 'device' : 'devices'} discovered. Start a run below.`,
+      });
       onConnected(result.templateId);
     } catch (cause) {
-      setError(
+      const message =
         cause instanceof ApiError && cause.status === 422
           ? cause.message
           : cause instanceof ApiError && cause.isIntegration
             ? 'Ring did not accept that token. Generate a fresh one in the Playground and try again.'
-            : 'Could not connect to Ring.',
-      );
+            : 'Could not connect to Ring.';
+      setError(message);
+      notify('Ring connection failed', { tone: 'error', body: message });
       setStatus(await api.ringStatus().catch(() => null));
     } finally {
       setBusy(false);
@@ -62,65 +69,105 @@ export function RingConnect({ onConnected }: { onConnected: (templateId: string)
   async function disconnect() {
     setStatus(await api.ringDisconnect().then((s) => ({ ...s, integrationState: 'HEALTHY' as const })));
     setDiscovered(null);
+    notify('Disconnected', { tone: 'info', body: 'The Ring token was dropped from server memory.' });
   }
 
   return (
     <Card className="p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-slate-900">Live Test - connect Ring Playground</h2>
-        {connected ? <Badge tone="emerald">Connected</Badge> : <Badge>Not connected</Badge>}
-      </div>
+      <CardHeader
+        icon={<Link2 className="h-4 w-4" />}
+        title="Connect Ring Developer Playground"
+        right={
+          connected ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+              Connected
+            </span>
+          ) : (
+            <Badge>Not connected</Badge>
+          )
+        }
+      />
 
       {connected ? (
-        <div className="mt-3 space-y-2 text-sm text-slate-700">
-          <p>
-            Session expires {formatTime(status?.expiresAt)}
-            {secondsLeft !== null && (
-              <span className={secondsLeft < 300 ? 'font-semibold text-amber-800' : ''}>
-                {' '}
-                ({Math.floor(secondsLeft / 60)}m {secondsLeft % 60}s left)
+        <div className="mt-3 space-y-2.5 text-[13px] text-slate-700">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+            <span className="inline-flex items-center gap-1">
+              <Timer aria-hidden className="h-3.5 w-3.5 text-slate-400" />
+              Token expires {formatTime(status?.expiresAt)}
+            </span>
+            {secondsLeft !== null && secondsLeft < 7200 && (
+              <span
+                className={cx(
+                  'rounded-full px-2 py-0.5 font-semibold tabular-nums ring-1 ring-inset',
+                  secondsLeft < 300 ? 'bg-amber-50 text-amber-800 ring-amber-200' : 'bg-slate-50 text-slate-700 ring-slate-200',
+                )}
+              >
+                {Math.floor(secondsLeft / 60)}m {String(secondsLeft % 60).padStart(2, '0')}s left
               </span>
             )}
-            . Playground tokens last about 30 minutes; reconnect with a new one when it lapses.
-          </p>
+          </div>
           {discovered && (
-            <p>
-              <span className="font-semibold">{discovered.count} device(s) discovered:</span>{' '}
-              {discovered.devices
-                .map((d) => `${d.label} (${d.status === 'AVAILABLE' ? 'online' : d.status === 'UNAVAILABLE' ? 'offline' : 'status unknown'})`)
-                .join(', ')}
+            <div>
+              <p className="text-xs font-semibold text-slate-700">
+                {discovered.count} {discovered.count === 1 ? 'device' : 'devices'} discovered
+              </p>
+              <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                {discovered.devices.map((d) => (
+                  <li
+                    key={d.label}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200"
+                  >
+                    <span
+                      className={cx(
+                        'h-1.5 w-1.5 rounded-full',
+                        d.status === 'AVAILABLE' ? 'bg-emerald-500' : d.status === 'UNAVAILABLE' ? 'bg-amber-500' : 'bg-slate-400',
+                      )}
+                    />
+                    {d.label} ({d.status === 'AVAILABLE' ? 'online' : d.status === 'UNAVAILABLE' ? 'offline' : 'status unknown'})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {discovered?.devices.some((d) => d.status === 'UNAVAILABLE') && (
+            <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+              Ring reports a device offline. You can still start a run: its Ring checks will show as blocked, with an
+              incident and next steps, until the device returns. Manual checks are unaffected.
             </p>
           )}
-          <Button variant="ghost" onClick={disconnect}>
+          <p className="text-xs text-slate-500">Playground tokens last about 30 minutes; reconnect with a new one when it lapses.</p>
+          <Button variant="ghost" size="sm" onClick={disconnect}>
+            <Link2Off aria-hidden className="h-3.5 w-3.5" />
             Disconnect and forget token
           </Button>
         </div>
       ) : (
         <form
-          className="mt-3 space-y-2"
+          className="mt-3 space-y-2.5"
           onSubmit={(event) => {
             event.preventDefault();
             if (token.trim() && acknowledged) void connect();
           }}
         >
-          <div className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+          <div className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-slate-200">
             <input
               id={noticeId}
               type="checkbox"
               checked={acknowledged}
               onChange={(event) => setAcknowledged(event.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-400"
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-300 accent-brand-600"
             />
-            <label htmlFor={noticeId} className="text-sm text-slate-700">
+            <label htmlFor={noticeId} className="text-xs leading-relaxed text-slate-600">
               I have read the{' '}
-              <a href="#/privacy" className="font-semibold text-sky-800 underline underline-offset-2">
+              <a href="#/privacy" className="font-semibold text-brand-700 hover:underline">
                 data-practices notice
               </a>
-              : what Ring data is collected and stored, whether any is sent to Amazon Bedrock, retention, deletion, and
+              : what Ring data is collected and stored, whether any is sent to an AI service, retention, deletion, and
               workplace-monitoring obligations.
             </label>
           </div>
-          <label htmlFor={inputId} className="block text-sm text-slate-700">
+          <label htmlFor={inputId} className="block text-xs text-slate-500">
             Paste a short-lived OAuth token from the Ring Developer Playground. It is sent once over HTTPS, kept in server
             memory only, never stored, logged, or shown again.
           </label>
@@ -133,9 +180,9 @@ export function RingConnect({ onConnected }: { onConnected: (templateId: string)
               value={token}
               onChange={(event) => setToken(event.target.value)}
               placeholder="Playground OAuth token"
-              className="min-h-[40px] flex-1 rounded-lg border border-slate-300 px-3 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="h-8 flex-1 rounded-lg border-0 px-3 text-[13px] shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500"
             />
-            <Button type="submit" variant="primary" disabled={busy || !acknowledged || token.trim().length === 0}>
+            <Button type="submit" variant="brand" disabled={busy || !acknowledged || token.trim().length === 0}>
               {busy ? 'Connecting…' : 'Connect and discover devices'}
             </Button>
           </div>

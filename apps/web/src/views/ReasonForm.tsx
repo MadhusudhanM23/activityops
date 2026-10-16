@@ -33,7 +33,7 @@ export function ReasonForm({
 
   return (
     <form
-      className="mt-2 space-y-2 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200"
+      className="mt-3 space-y-2 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200 animate-fade-in"
       onSubmit={(event) => {
         event.preventDefault();
         if (!blocked) onSubmit(reason.trim());
@@ -41,7 +41,7 @@ export function ReasonForm({
     >
       <label htmlFor={id} className="block text-xs font-semibold text-slate-700">
         {label}
-        {required && <span className="text-red-700"> (required)</span>}
+        {required && <span className="font-normal text-red-600"> (required)</span>}
       </label>
       <textarea
         id={id}
@@ -50,7 +50,7 @@ export function ReasonForm({
         placeholder={placeholder}
         maxLength={1000}
         rows={2}
-        className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+        className="w-full rounded-lg border-0 px-2.5 py-1.5 text-[13px] shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500"
         autoFocus
       />
       <div className="flex flex-wrap gap-2">
@@ -59,10 +59,10 @@ export function ReasonForm({
           disabled={blocked || busy}
           className={
             variant === 'danger'
-              ? 'min-h-[40px] rounded-lg bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:bg-red-200'
+              ? 'h-8 rounded-lg bg-red-600 px-3 text-[13px] font-medium text-white shadow-sm hover:bg-red-700 disabled:bg-red-200'
               : variant === 'success'
-                ? 'min-h-[40px] rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:bg-emerald-200'
-                : 'min-h-[40px] rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-300'
+                ? 'h-8 rounded-lg bg-emerald-600 px-3 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700 disabled:bg-emerald-200'
+                : 'h-8 rounded-lg bg-slate-900 px-3 text-[13px] font-medium text-white shadow-sm hover:bg-slate-800 disabled:bg-slate-300'
           }
         >
           {submitLabel}

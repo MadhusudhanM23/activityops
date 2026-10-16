@@ -66,6 +66,8 @@ export interface Check {
 
 export interface Incident {
   id: string;
+  /** Raised during an earlier run of the same check and still open. */
+  carriedOver?: boolean;
   checkId: string;
   checkLabel: string;
   severity: 'BLOCKER' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -110,7 +112,11 @@ export interface AiNote {
   text: string;
   createdAt: string;
   modelId?: string;
+  /** Where the model ran: Amazon Bedrock, or a local model on the server. */
+  provider?: 'bedrock' | 'local' | 'google' | 'test';
   requestedBy?: string;
+  /** Set on a note captured from a real run and shipped with the recorded demo. */
+  recordedAt?: string;
   trace?: AiTraceEntry[];
 }
 
