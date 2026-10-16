@@ -191,6 +191,48 @@ export function Dashboard({
         </ol>
       </section>
 
+      {/* Who it's for */}
+      <section aria-labelledby="who" className="space-y-3">
+        <h2 id="who" className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">
+          Who it is for
+        </h2>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <Card className="p-4">
+            <p className="text-[13px] font-semibold text-slate-900">Small multi-site operators that already own Ring cameras</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              Franchise cafés, pharmacies, convenience and retail chains, and managed offices. Each site opens, closes and
+              hands over every day, usually on a paper sheet or a spreadsheet tick that proves nothing. The owner finds out
+              a check was skipped only after a loss, a failed inspection or an insurance claim.
+            </p>
+            <ul className="mt-3 grid gap-2 sm:grid-cols-3">
+              {[
+                ['Store manager', 'Opens the site with a checklist that cannot be ticked without doing the check.'],
+                ['Area manager', 'Sees which of 20 sites is ready by 7:15, and who decided it.'],
+                ['Owner or auditor', 'Gets a printable record of what happened, when, and by whom.'],
+              ].map(([who, what]) => (
+                <li key={who} className="rounded-lg bg-slate-50 p-2.5 ring-1 ring-slate-200">
+                  <p className="text-xs font-semibold text-slate-900">{who}</p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-slate-600">{what}</p>
+                </li>
+              ))}
+            </ul>
+          </Card>
+          <Card className="p-4">
+            <p className="text-[13px] font-semibold text-slate-900">Why Ring, and why not AI detection</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              The camera is already at the door. ActivityOps uses its Event History as a timestamped witness that a
+              walkthrough happened in the right window, not as a judge of what was seen. The person stays accountable
+              for the decision, and the record is honest about its limits. That keeps the product usable with staff and
+              the public on camera, and keeps it out of life-safety and security-guarantee territory.
+            </p>
+            <p className="mt-3 text-[11px] text-slate-500">
+              Built for the Ring Appstore model: a site operator connects their own Ring account; nothing leaves the
+              operator's deployment except the facts shown on screen.
+            </p>
+          </Card>
+        </div>
+      </section>
+
       {/* Live Test */}
       <section id="live" aria-labelledby="live-title" className="scroll-mt-20 space-y-3">
         <h2 id="live-title" className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">

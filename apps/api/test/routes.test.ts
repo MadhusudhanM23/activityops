@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { REVIEW_RUN_ID, seedReviewMode } from '../src/seed/reviewMode.js';
-import { DEVICE_A, realDeviceList, syntheticPage } from './fixtures/ring.js';
+import { DEVICE_A, DEVICE_B, realDeviceList, syntheticPage } from './fixtures/ring.js';
 import { FAKE_TOKEN, type Harness, advance, makeHarness } from './helpers/http.js';
 
 const FORBIDDEN = /person detected|motion detected|site is safe|site was clear|area is clear|verified safe|proven clear|four-eyes|manager sign-off/i;
@@ -374,6 +374,51 @@ describe('live check workflow over HTTP', () => {
     const second = (await h.call('POST', '/api/runs', { templateId })).json();
     expect(second.incidents).toEqual([]);
     expect(second.readiness.reasons.some((r: { code: string }) => /INCIDENT/.test(r.code))).toBe(false);
+  });
+
+  it('two cameras become two Ring checks, and a session on one never satisfies the other', async () => {
+    const h = await harness();
+    const twoDevices = {
+      ...onlineDeviceList,
+      data: [
+        onlineDeviceList.data[0],
+        {
+          ...onlineDeviceList.data[0],
+          id: DEVICE_B,
+          attributes: { name: 'Stockroom camera' },
+          relationships: { ...onlineDeviceList.data[0].relationships, status: { data: { type: 'device-status', id: 'status-2' } } },
+        },
+      ],
+      included: [
+        ...onlineDeviceList.included,
+        { type: 'device-status', id: 'status-2', attributes: { online: true, reported_at: '2026-10-08T09:00:00Z', state: null } },
+      ],
+    };
+    h.setRoute(() => ({ body: twoDevices }));
+    const connected = await connect(h);
+    expect(connected.json().devicesDiscovered).toBe(2);
+    const run = (await h.call('POST', '/api/runs', { templateId: 'template-live-opening' })).json();
+    const ring = run.checks.filter((c: { requirementType: string }) => c.requirementType === 'RING_REQUIRED');
+    expect(ring).toHaveLength(2);
+    const [entrance, stockroom] = ring as { id: string; label: string }[];
+
+    await h.call('POST', `/api/runs/${run.id}/checks/${entrance.id}/start`);
+    await h.call('POST', `/api/runs/${run.id}/checks/${stockroom.id}/start`);
+    const sessionStart = h.clock.now.getTime() + 10_000;
+    advance(h, 60);
+    // Only the stockroom camera produced a session.
+    h.setRoute((url) =>
+      url.includes('/status')
+        ? { body: { data: { type: 'device-status', id: 's', attributes: { online: true, reported_at: '2026-10-08T09:01:00Z' } } } }
+        : { body: syntheticPage([{ id: 'stockroom-session', startMs: sessionStart, deviceId: DEVICE_B }], null) },
+    );
+    const entranceSync = (await h.call('POST', `/api/runs/${run.id}/checks/${entrance.id}/sync`)).json();
+    const stockroomSync = (await h.call('POST', `/api/runs/${run.id}/checks/${stockroom.id}/sync`)).json();
+    expect(entranceSync.sync.sessionClaimed).toBe(false);
+    expect(stockroomSync.sync.sessionClaimed).toBe(true);
+    const after = stockroomSync.run.checks as { id: string; latestAttempt: { evidence: unknown } }[];
+    expect(after.find((c) => c.id === entrance.id)!.latestAttempt.evidence).toBeNull();
+    expect(after.find((c) => c.id === stockroom.id)!.latestAttempt.evidence).not.toBeNull();
   });
 
   it('connecting builds opening, closing and shift-handover checklists from the discovered devices', async () => {

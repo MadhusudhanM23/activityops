@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Ban, ChevronDown, FileDown, History, ListChecks, Lock, ShieldCheck, Sparkles } from 'lucide-react';
+import { AlertOctagon, ArrowLeft, Ban, Bot, ChevronDown, FileDown, History, ListChecks, Lock, ShieldCheck, Sparkles } from 'lucide-react';
 import type { AuditEntry, Run } from '../types.js';
 import { ApiError, api } from '../api.js';
 import { useToast } from '../toast.js';
@@ -21,6 +21,27 @@ import {
 import { CheckCard, WindowCountdown } from './CheckCard.js';
 import { CopilotPanel } from './CopilotPanel.js';
 import { IncidentPanel } from './IncidentPanel.js';
+
+/** The parts of the recorded demo worth a judge's two minutes, in viewing order. */
+const TOUR = [
+  { n: 1, label: 'Ring evidence card', target: 'check-1', hint: 'A real Playground session, with what it does not prove' },
+  { n: 2, label: 'FAIL kept, recheck PASS', target: 'check-2', hint: 'Attempt #1 stays on record; #2 supersedes it' },
+  { n: 3, label: 'Override, not a PASS', target: 'check-4', hint: 'An approved exception is shown as OVERRIDDEN' },
+  { n: 4, label: 'Incident lifecycle', target: 'incidents', hint: 'Open to resolved, resolution by a named person' },
+  { n: 5, label: 'AI handover note', target: 'copilot', hint: 'Drafted by a Strands agent from read-only tools' },
+  { n: 6, label: 'Audit trail', target: 'audit', hint: 'Every action, who and when' },
+];
+
+const SECTIONS = [
+  { id: 'checklist', label: 'Checklist', icon: ListChecks },
+  { id: 'incidents', label: 'Incidents', icon: AlertOctagon },
+  { id: 'copilot', label: 'AI copilot', icon: Bot },
+  { id: 'audit', label: 'Audit trail', icon: History },
+];
+
+function jumpTo(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 /** Runs an action, refreshes the run, and reports the outcome as a toast. */
 export type Perform = (action: () => Promise<unknown>, success?: string) => Promise<void>;
@@ -84,9 +105,9 @@ function humanize(action: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-function AuditTrail({ runId, version }: { runId: string; version: number }) {
+function AuditTrail({ runId, version, startOpen = false }: { runId: string; version: number; startOpen?: boolean }) {
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
 
   useEffect(() => {
     if (!open) return;
@@ -100,7 +121,7 @@ function AuditTrail({ runId, version }: { runId: string; version: number }) {
   }, [open, runId, version]);
 
   return (
-    <Card className="p-4">
+    <Card id="audit" className="scroll-mt-28 p-4">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -310,20 +331,65 @@ export function RunDetail({
         </div>
       </Card>
 
+      {/* Section menu: stays visible while the run scrolls */}
+      <nav aria-label="Run sections" className="sticky top-14 z-20 -mx-4 border-y border-slate-200/80 bg-slate-50/95 px-4 py-1.5 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="flex gap-1 overflow-x-auto">
+          {SECTIONS.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => jumpTo(section.id)}
+              className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm"
+            >
+              <section.icon aria-hidden className="h-3.5 w-3.5 text-slate-400" />
+              {section.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {recorded && (
+        <Card className="p-4">
+          <p className="text-[13px] font-semibold text-slate-900">Two-minute tour</p>
+          <p className="mt-0.5 text-xs text-slate-500">Six things worth seeing on this recorded run, in order. Click one to jump to it.</p>
+          <ol className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {TOUR.map((stop) => (
+              <li key={stop.n}>
+                <button
+                  type="button"
+                  onClick={() => jumpTo(stop.target)}
+                  className="flex w-full items-start gap-2.5 rounded-lg bg-slate-50 p-2.5 text-left ring-1 ring-slate-200 transition hover:bg-white hover:ring-brand-300"
+                >
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-600 text-[10px] font-bold text-white">{stop.n}</span>
+                  <span className="min-w-0">
+                    <span className="block text-xs font-semibold text-slate-900">{stop.label}</span>
+                    <span className="block text-[11px] leading-snug text-slate-500">{stop.hint}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <section aria-labelledby="checklist" className="space-y-3">
-          <h2 id="checklist" className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide text-slate-500">
+        <section aria-labelledby="checklist-title" className="space-y-3">
+          <h2 id="checklist" className="scroll-mt-28 flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide text-slate-500">
             <ListChecks aria-hidden className="h-4 w-4" />
             Checklist
           </h2>
           {run.checks.map((check, index) => (
-            <CheckCard key={check.id} index={index + 1} run={run} check={check} busy={busy} perform={perform} onRun={setRun} />
+            <div key={check.id} id={`check-${index + 1}`} className="scroll-mt-28">
+              <CheckCard index={index + 1} run={run} check={check} busy={busy} perform={perform} onRun={setRun} />
+            </div>
           ))}
         </section>
 
         <aside className="space-y-3 lg:pt-7">
           <ReadinessPanel run={run} />
-          <IncidentPanel run={run} signedIn={signedIn} busy={busy} perform={perform} />
+          <div id="incidents" className="scroll-mt-28">
+            <IncidentPanel run={run} signedIn={signedIn} busy={busy} perform={perform} />
+          </div>
         </aside>
       </div>
 
@@ -332,8 +398,10 @@ export function RunDetail({
           <Sparkles aria-hidden className="h-4 w-4" />
           Handover and history
         </h2>
-        <CopilotPanel key={version} run={run} signedIn={signedIn} />
-        <AuditTrail runId={run.id} version={version} />
+        <div id="copilot" className="scroll-mt-28">
+          <CopilotPanel key={version} run={run} signedIn={signedIn} />
+        </div>
+        <AuditTrail runId={run.id} version={version} startOpen={recorded} />
       </section>
     </div>
   );

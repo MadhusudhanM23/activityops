@@ -407,3 +407,23 @@ transaction as the cancellation. The lifecycle and audit trail show it.
 - **Closing and shift-handover live checklists** are built from the discovered devices alongside
   opening; the opening template keeps its ids. Listed opening, closing, handover.
 
+## D-066 — 2026-10-16 — Judge-facing fixes: tour, section menu, impact story, one-command start
+Scored against the four judging criteria, the weakest were Potential Impact (no written customer
+case) and Design (a long run page, and judges without a Ring token see only the recorded run).
+- **Two-minute tour** on the recorded run: six numbered stops (evidence card, FAIL kept / recheck
+  PASS, override, incident lifecycle, AI note, audit trail) that scroll to the part; the audit trail
+  opens by default on the recorded run.
+- **Section menu** that stays under the summary bar: Checklist, Incidents, AI copilot, Audit trail.
+- **Who it is for** on the home page and in the README: multi-site operators that already own Ring
+  cameras; what each role gets; why Event History as a witness rather than AI detection; the Ring
+  Appstore path. A **What's next** roadmap in the README, with the hospitality table-turnover idea
+  deferred and worded to keep identities out of it.
+- **`npm run dev`** starts API and UI together via `concurrently`. The API runs without watch mode
+  there: `tsx watch` never launches when another process owns its stdin on Windows (verified: direct
+  `tsx` starts in ~1 s; `tsx watch` under `concurrently`, with or without `--handle-input`, idles
+  until killed). `dev:api` keeps watch mode for development.
+- **Two-camera test**: two discovered devices become two Ring checks, and a session on one device
+  never satisfies the other (the single-claim binding is per device). The Playground offers one
+  device, so this stays test-proven, and the README says so.
+- The café "dining room reset" checklist was considered and deferred until after the hackathon.
+

@@ -29,6 +29,30 @@ ActivityOps turns that checklist into an accountable record:
 5. Readiness is **computed deterministically** from all of the above, with a plain-language
    explanation of what is blocking it.
 
+## Who it is for
+
+**Small multi-site operators that already own Ring cameras**: franchise cafés, pharmacies,
+convenience and retail chains, managed offices. Every site opens, closes and hands over daily, and
+today the record is a paper sheet or a spreadsheet tick that proves nothing. The owner learns a
+check was skipped only after a loss, a failed inspection or an insurance claim.
+
+| Role | What ActivityOps gives them |
+|---|---|
+| Store manager | A checklist that cannot be ticked without doing the check |
+| Area manager | Which of 20 sites is ready by 7:15, and who decided it |
+| Owner, auditor, insurer | A printable record of what happened, when, and by whom |
+
+**Why Ring, and why not AI detection.** The camera is already at the door. ActivityOps uses its
+Event History as a timestamped witness that a walkthrough happened in the right window, never as a
+judge of what was seen. The person stays accountable for the decision and the record is honest
+about its limits, which keeps the product usable with staff and the public on camera and out of
+life-safety or security-guarantee territory.
+
+**Path to market.** The Ring Appstore model fits: a site operator connects their own Ring account to
+their own ActivityOps deployment, and nothing leaves it except the facts shown on screen. The
+cost of one skipped alarm check or one failed food-safety inspection is more than a year of
+software for a small chain; that is the pitch.
+
 ## What the Ring evidence does — and does not — mean
 
 A Ring `on_demand` record is a **live-view session record**. ActivityOps calls it
@@ -114,7 +138,7 @@ flowchart LR
 |---|---|---|
 | Ring Partner API — `GET /v1/devices`, `/v1/devices/{id}/status`, `/v1/history/devices/{id}/events` | Device discovery, availability, Event History sync | **Used at runtime** in Live Test Mode |
 | Ring Developer Playground | One-click OAuth tokens; validation gate; judge Live Test | **Used** |
-| Ring live view (WHEP) | Operators open live view in the Playground, in a separate tab | Designed in; **not exercised** — the Playground device was offline throughout testing. No embedded video |
+| Ring live view (Playground "Simulate live view event") | Operators trigger a live-view session in the Playground, in a separate tab; ActivityOps finds it in Event History | **Exercised 2026-10-12**: a real session was bound to a check and unlocked PASS ([T8](evidence/day-1/T8-live-view.md)). No embedded video |
 | Ring media / snapshot APIs | — | **Deliberately never called** by the readiness workflow |
 | Amazon EC2 + encrypted Amazon EBS + Docker Compose + Caddy | Hosting; SQLite on a persistent encrypted volume | Container stack built and verified locally; **not yet deployed** |
 | IAM instance role, AWS Secrets Manager | No long-lived keys on the host; password from Secrets Manager | Runbook and script written; **not yet deployed** |
@@ -167,10 +191,13 @@ Stated plainly, so nothing here is mistaken for something it is not:
   T9/T10 (Bedrock invocation and tool use on Bedrock) remain unverified.
 - **No local model on our hardware.** A local-model path (`AI_RUNTIME=strands-local`, Ollama) exists,
   but measured 4 tokens/s on the 8 GB, no-GPU build machine - too slow to use.
-- **The Playground device was offline** throughout testing, so no fresh live-view session could be
-  generated. The recorded run uses the one real session record that was captured.
-- **Unmeasured timing.** Provider indexing delay could not be measured, so the post-window wait
-  (60 s) and clock-skew allowance (30 s) are conservative defaults, explicitly not tuned.
+- **One Playground device.** The Playground exposes a single simulated device, so multi-camera
+  behaviour (one Ring check per camera, evidence never crossing between them) is proven by tests,
+  not by a live run. The device was offline until 2026-10-12; the recorded run uses the one real
+  session captured on 2026-10-07 and a second real session was bound live on 2026-10-12.
+- **Timing measured once.** On 2026-10-12 a session was visible in Event History within about 10 s
+  of its end. One sample, so the post-window wait (60 s) and clock-skew allowance (30 s) remain
+  conservative defaults.
 - **Pagination is unverified against Ring.** It is tested against synthetic multi-page fixtures; the
   test account never held enough events to span pages.
 - **One login.** There is no role separation, so the operator and the approver can be the same
@@ -187,15 +214,18 @@ version this has been tested on (CI and the container image use it too).
 
 ```bash
 npm install
-npm run dev:api        # API on http://127.0.0.1:8787, seeds the recorded demo run
-npm run dev:web        # UI on http://localhost:5173
+npm run dev            # API on http://127.0.0.1:8787 (seeds the recorded demo run) + UI on http://localhost:5173
 ```
+
+For hot reload while developing, run them separately: `npm run dev:api` (watch mode) and
+`npm run dev:web`. The combined command runs the API without watch mode, because `tsx watch` does
+not start when another process owns its stdin on Windows.
 
 Open <http://localhost:5173> — use `localhost`, not `127.0.0.1`: the Vite dev server may listen on
 IPv6 only. Review Mode works immediately; sign in with the local credentials above for Live Test.
 
 ```bash
-npm test               # 267 tests, no AWS credentials needed
+npm test               # 273 tests, no AWS credentials needed
 npm run typecheck
 node scripts/scan-secrets.mjs --history
 ```
@@ -256,6 +286,21 @@ matter most:
 | `CLOCK_SKEW_ALLOWANCE_SECONDS` | Grace before arming, for clock mismatch only (30) |
 | `BEDROCK_MODEL_ID`, `AWS_REGION` | AI copilot model and region. Unset = AI off. A model id without a region refuses to start |
 | `AI_RUNTIME` | `strands` (default when a model is set), `bedrock-converse` (fallback), `strands-gemini`, `strands-local` or `off` |
+
+## What's next
+
+Not built, in the order we would build them:
+
+1. **Ring webhooks** for evidence the moment a session ends (needs a public URL); today the app
+   polls Event History every 15 s while a check is armed.
+2. **Roles**: separate operator and approver sign-ins for real two-person control.
+3. **Multi-site dashboard** for area managers, with schedules and "not started by 7:15" alerts.
+4. **Amazon Bedrock in production**, then **AgentCore** hosting for the agent; the code paths exist
+   and switch on with one setting once an account has quota.
+5. **Embedded live view** (WHEP) inside the check card.
+6. **Hospitality**: anonymous table-turnover insights (counts and durations only, no identities,
+   with notice to customers) using Ring's video access for custom models, kept separate from the
+   accountability record so the honesty rules above still hold.
 
 ## How this was built
 
