@@ -104,6 +104,12 @@ handover artifact.
 Phase 6b (EC2 + encrypted EBS) is likely to meet the same class of restriction on this account
 tier; that is now the first thing to test there rather than a late discovery.
 
+## Retest 2026-10-16
+Fresh `aws login` (same role). `converse` with `maxTokens: 10` against
+`global.anthropic.claude-sonnet-4-5-20250929-v1:0` in us-east-1 and ap-southeast-2: both still
+`ThrottlingException: Too many tokens per day`. No Bedrock quota named "tokens per day" has a
+non-zero value. Account age 8 days. Unchanged; the submission uses the Gemini path.
+
 ## Next action
 Retry `converse` occasionally. If a model ever returns a completion, run
 `npm run ai:smoke --workspace apps/api` with `AWS_REGION` and `BEDROCK_MODEL_ID` set and update

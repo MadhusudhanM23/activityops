@@ -119,6 +119,8 @@ progressed during testing. It may clear on its own, but we do not depend on it.
 an AWS service for the AWS Builder mini challenge, so the copilot runs the real Strands agent
 against a local model, labelled as not Bedrock (D-061).
 
+Retested 2026-10-16 after a fresh login: unchanged.
+
 **Retire by** running T9/T10 on an account with a non-zero model-invocation quota: either this
 account after leaving the Free plan tier, or a different account with a payment method. A $1
 zero-spend budget alert is configured, so either route is protected against surprise charges.
