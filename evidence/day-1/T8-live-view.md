@@ -1,6 +1,28 @@
 # T8 - Live view
 
-**Status:** BLOCKED - device offline; no session could be started
+**Status:** PASS (2026-10-12) - first real end-to-end run. A Playground "Simulate live view event"
+session was found by Event History sync, bound to the armed attempt, and unlocked PASS.
+
+## Result - 2026-10-12 (supersedes the blocked attempt below)
+- **Environment:** Ring Developer Playground (developer.amazon.com/ring/console/playground), one-click
+  token, device reported **online** for the first time. ActivityOps dev build, Live Test Mode, local.
+- **Steps:** started a live run; *Start Ring check* armed the window 22:20:15 - 22:25:45 IST
+  (300 s, 30 s skew allowance); in the Playground, section 3 *Simulate live view event* -> **Motion**;
+  then *Sync Ring history* in ActivityOps.
+- **Observed:** one session record on the check's device, start **22:21:42**, end **22:22:22** IST
+  (40 s), labelled SIMULATED, provider record shown truncated (`...UMYG6HF5`). Bound to attempt #1
+  only; *Record PASS* became enabled. A sync at ~22:22:31 had it; an earlier sync at ~22:22:09 may
+  also have, but its result was not captured.
+- **Timing (partial T5):** the record was visible **no later than ~10 s after its end time**
+  (~50 s after its start). Not a controlled measurement - one sample, sync times approximate.
+- **Not shown:** video. ActivityOps never requests media; the Playground streamed in its own tab.
+- **Interpretation:** the evidence pipeline works against the real Ring API end to end: device
+  binding via `relationships.source`, epoch-ms times, window matching, single-claim binding, and the
+  PASS gate. The 60 s post-window wait and 30 s skew allowance remain conservative defaults.
+
+---
+
+Earlier record:
 
 ## Hypothesis
 The Playground live-view flow starts a session, is usable in an external tab for a demo, and

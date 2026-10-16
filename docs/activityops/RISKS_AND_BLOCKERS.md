@@ -85,7 +85,7 @@ unacceptable on a public URL: anyone could attest, approve, or connect a token.
 **Closed in Phase 6a:** session cookie, CSRF, rate limiting, route-keyed authorization policy, and 39
 security and bypass-regression tests (D-035 to D-038).
 
-## R-006 — The Playground live-view deep link is unverified
+## R-006 — CLOSED (2026-10-12) — The Playground live-view deep link is unverified
 "Open Ring live view" links to the Ring developer portal by default (D-034). Confirm the real
 Playground URL during the next live session and set `VITE_RING_PLAYGROUND_URL`.
 
@@ -98,3 +98,34 @@ dependencies audit clean. **Retire by** migrating to Tailwind 4 with a full visu
 Every container behaviour in the runbook is verified locally, including the EBS ownership step, but
 an EC2 deployment can still surface DNS, certificate, security-group or IAM issues. Budget a day on
 the schedule's Oct 18 slot once AWS access exists (B-002).
+
+## R-009 — Bedrock model invocation is refused by a zero, non-adjustable account quota
+AWS access was obtained on 2026-10-10 and works: credentials, IAM role, region and the Bedrock
+**control plane** are all verified (50 inference profiles listed in ap-southeast-2). Model
+**invocation** fails on every model tried, including a 10-token request.
+
+The error text is misleading. `ThrottlingException: Too many tokens per day` reads as a transient
+limit, but Service Quotas shows the daily allowance is **`0.0`** with **`Adjustable: False`**, and
+a sweep found **no** Bedrock model on this account with a non-zero `tokens per day` value. Nothing
+was consumed, so it is not a daily allowance that resets overnight.
+
+**This supersedes the earlier assumption that B-002 was purely an access problem.** Access exists.
+The likely causes are new-account verification (the account was created 2026-10-08, and us-east-1
+briefly said verification was in progress) and the Free plan tier (credits only, no payment
+method). An earlier note here said waiting was futile; that was wrong, since verification visibly
+progressed during testing. It may clear on its own, but we do not depend on it.
+
+**Decision:** the account owner will not upgrade (it cannot be reversed). The Strands SDK counts as
+an AWS service for the AWS Builder mini challenge, so the copilot runs the real Strands agent
+against a local model, labelled as not Bedrock (D-061).
+
+**Retire by** running T9/T10 on an account with a non-zero model-invocation quota: either this
+account after leaving the Free plan tier, or a different account with a payment method. A $1
+zero-spend budget alert is configured, so either route is protected against surprise charges.
+
+**If not retired:** submit with AI off. The deterministic readiness features are unaffected by
+design, the README already states the integration has never run against real Bedrock, and
+[`evidence/day-1/T9-bedrock.md`](../../evidence/day-1/T9-bedrock.md) is the honest record of why.
+
+**Related:** R-008 — Phase 6b (EC2 + encrypted EBS) may meet the same class of account-tier
+restriction. Test that first on deployment day rather than discovering it late.

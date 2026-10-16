@@ -5,8 +5,10 @@ proxy (Caddy)**. App Runner is ruled out because its filesystem is ephemeral and
 authoritative store.
 
 > **Status:** the container image, Compose stack and hardening have been built and tested locally
-> (Docker Desktop). The AWS steps below have **not yet been executed** — no AWS account was available
-> to this build (blocker B-002). Treat this as a runbook to verify, not a record of a deployment.
+> (Docker Desktop). The AWS steps below have **not been executed**: the hackathon does not require a
+> hosted URL, and the project's new Free-plan account cannot invoke Bedrock (R-009). Treat this as a
+> runbook to verify, not a record of a deployment. If you deploy, terminate the instance and delete
+> the EBS volume afterwards - they bill monthly until removed.
 
 ```
 Internet ──443──▶ Caddy (TLS, automatic certificates) ──▶ activityops-app:8080 ──▶ /data (encrypted EBS)

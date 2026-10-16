@@ -1,6 +1,8 @@
 # T10 - Strands custom tool
 
-**Status:** BLOCKED - no AWS account access yet (B-002)
+**Status:** BLOCKED - unreachable while T9 fails. AWS access now exists, but model
+invocation is refused by a zero, non-adjustable account quota (R-009). Tool use cannot be
+observed until a model returns a completion.
 
 ## Hypothesis
 A minimal read-only custom tool (getVerificationRun) can be registered with Strands Agents for TypeScript and invoked through Bedrock.

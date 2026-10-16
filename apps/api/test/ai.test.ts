@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { runAgent, SYSTEM_PROMPT, TASK_INSTRUCTIONS, type ModelClient, type ModelRequest, type ModelResponse } from '../src/ai/agent.js';
 import { runTool, TOOL_SPECS } from '../src/ai/tools.js';
 import { untrusted } from '../src/ai/untrusted.js';
-import { REVIEW_RUN_ID, seedReviewMode } from '../src/seed/reviewMode.js';
+import { RECORDED_AI_NOTE_ID, REVIEW_RUN_ID, seedReviewMode } from '../src/seed/reviewMode.js';
 import { makeFixture, T0, at } from './helpers/fixture.js';
 import { attest, startAttempt } from '../src/domain/attempts.js';
 import { raiseOrAttachIncident } from '../src/domain/incidents.js';
@@ -243,13 +243,26 @@ describe('copilot over HTTP', () => {
     expect(res.json()).toMatchObject({ source: 'AI', status: 'COMPLETED' });
 
     const notes = (await h.anon('GET', `/api/runs/${REVIEW_RUN_ID}/ai`)).json();
-    expect(notes).toHaveLength(1);
-    expect(notes[0]).toMatchObject({ type: 'HANDOVER', modelId: 'fake.scripted-model' });
-    expect(notes[0].trace[0].tool).toBe('getVerificationRun');
+    const fresh = notes.filter((n: { id: string }) => n.id !== RECORDED_AI_NOTE_ID);
+    expect(fresh).toHaveLength(1);
+    expect(fresh[0]).toMatchObject({ type: 'HANDOVER', modelId: 'fake.scripted-model', provider: 'test' });
+    expect(fresh[0].trace[0].tool).toBe('getVerificationRun');
 
     const stored = JSON.stringify(h.db.prepare('SELECT * FROM ai_interaction').all());
     expect(stored).not.toContain(SYSTEM_PROMPT.slice(0, 40));
     expect(stored).not.toContain(TASK_INSTRUCTIONS.HANDOVER.slice(0, 40));
+  });
+
+  it('Review Mode shows the real captured Strands + Gemini note, labelled recorded and not Bedrock', async () => {
+    h = await makeHarness();
+    seedReviewMode(h.db);
+    const notes = (await h.anon('GET', `/api/runs/${REVIEW_RUN_ID}/ai`)).json();
+    const recorded = notes.find((n: { id: string }) => n.id === RECORDED_AI_NOTE_ID);
+    expect(recorded).toMatchObject({ type: 'HANDOVER', provider: 'google', modelId: 'gemini-2.5-flash' });
+    expect(recorded.recordedAt).toMatch(/^2026-10-10T/);
+    expect(recorded.trace.length).toBeGreaterThan(3);
+    expect(recorded.trace.every((e: { ok: boolean }) => e.ok)).toBe(true);
+    expect(recorded.text).not.toMatch(/person detected|motion detected|site (is |was )?(clear|safe|secure)|area (is |was )?clear/i);
   });
 
   it('does not save a withheld note', async () => {
@@ -257,7 +270,7 @@ describe('copilot over HTTP', () => {
     seedReviewMode(h.db);
     const res = await h.call('POST', '/api/ai/ask', { runId: REVIEW_RUN_ID, task: 'HANDOVER' });
     expect(res.json()).toMatchObject({ status: 'WITHHELD', savedId: null });
-    expect(h.db.prepare('SELECT COUNT(*) AS n FROM ai_interaction').get()).toEqual({ n: 0 });
+    expect(h.db.prepare('SELECT COUNT(*) AS n FROM ai_interaction WHERE id <> ?').get(RECORDED_AI_NOTE_ID)).toEqual({ n: 0 });
   });
 
   it('requires sign-in to ask, and keeps live-run notes private', async () => {
@@ -284,7 +297,7 @@ describe('copilot over HTTP', () => {
     seedReviewMode(h.db);
     await h.call('POST', '/api/ai/ask', { runId: REVIEW_RUN_ID, task: 'HANDOVER' });
     await h.call('POST', '/api/data/delete-all', { confirm: 'DELETE ALL DATA' });
-    expect(h.db.prepare('SELECT COUNT(*) AS n FROM ai_interaction').get()).toEqual({ n: 0 });
+    expect(h.db.prepare('SELECT COUNT(*) AS n FROM ai_interaction WHERE id <> ?').get(RECORDED_AI_NOTE_ID)).toEqual({ n: 0 });
   });
 
   it('the privacy notice says data goes to Bedrock only when a model is actually present', async () => {

@@ -4,6 +4,7 @@ import { transitionIncident, openIncidentForCheck } from '../domain/incidents.js
 import { approveRun, setIntegrationState } from '../domain/runs.js';
 import { autoClaimEvidence, recordDecision, startCheck } from '../domain/workflow.js';
 import { row } from '../db/query.js';
+import { RECORDED_AI_NOTE } from './recordedAiNote.js';
 
 /**
  * Judge Review Mode seed (spec v7 sec. 19).
@@ -27,6 +28,7 @@ import { row } from '../db/query.js';
 
 export const REVIEW_RUN_ID = 'run-recorded-demo-2026-10-07';
 export const CAPTURE_DATE = '2026-10-07';
+export const RECORDED_AI_NOTE_ID = 'ai-recorded-demo-handover';
 
 const SITE = 'site-recorded-demo';
 const DEVICE = 'device-recorded-demo';
@@ -182,6 +184,24 @@ export function seedReviewMode(db: DatabaseSync, demoWindowSeconds = 300, skewSe
 
     setIntegrationState(db, 'HEALTHY', null, t('11:33:00'));
     approveRun(db, REVIEW_RUN_ID, OPERATOR, t('11:33:30'));
+
+    // A real, captured AI handover note (see recordedAiNote.ts), labelled as recorded.
+    db.prepare(
+      'INSERT INTO ai_interaction (id, run_id, type, tool_trace_summary, response, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ).run(
+      RECORDED_AI_NOTE_ID,
+      REVIEW_RUN_ID,
+      'HANDOVER',
+      JSON.stringify({
+        modelId: RECORDED_AI_NOTE.modelId,
+        provider: RECORDED_AI_NOTE.provider,
+        requestedBy: OPERATOR,
+        recordedAt: RECORDED_AI_NOTE.capturedAt,
+        trace: RECORDED_AI_NOTE.trace,
+      }),
+      RECORDED_AI_NOTE.text,
+      RECORDED_AI_NOTE.capturedAt,
+    );
 
     db.exec('COMMIT');
     return true;

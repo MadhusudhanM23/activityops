@@ -4,6 +4,7 @@ import { deleteAllData } from '../../db/migrate.js';
 import { writeAudit } from '../../domain/audit.js';
 import { RATE_RULES } from '../../security/rateLimit.js';
 import { seedReviewMode } from '../../seed/reviewMode.js';
+import type { AiProvider } from '../../ai/runtime.js';
 import { type AppContext, actor, withinLimit } from '../context.js';
 
 export const DELETE_CONFIRMATION = 'DELETE ALL DATA';
@@ -16,7 +17,7 @@ const deleteBody = z.object({
  * The data-practices notice (spec v7 sec. 16), generated from this deployment's
  * real configuration so it cannot drift from what the system actually does.
  */
-export function privacyNotice(aiEnabled: boolean) {
+export function privacyNotice(aiEnabled: boolean, provider: AiProvider = 'bedrock') {
   return {
     title: 'How ActivityOps handles Ring data',
     sections: [
@@ -38,7 +39,19 @@ export function privacyNotice(aiEnabled: boolean) {
       },
       {
         heading: 'Whether Ring-derived data is sent to Amazon Bedrock',
-        body: aiEnabled
+        body: aiEnabled && provider === 'google'
+          ? [
+              'No. The AI assistant on this deployment uses Google Gemini, not Amazon Bedrock, and it only drafts notes for the published recorded demo run. Live Ring-derived data is never sent to it.',
+              'For the recorded demo run, Gemini receives the minimum stored facts needed through read-only tools - never video, images, or the Ring token. Google may use free-tier inputs to improve its products, which is why live data is excluded.',
+              'Raw prompts are not stored. Generated notes you keep are stored and are covered by Delete All Data.',
+            ]
+          : aiEnabled && provider === 'local'
+          ? [
+              'No. The AI assistant on this deployment uses a model running on the same machine as ActivityOps (a local model served through an OpenAI-compatible endpoint, such as Ollama). Ring-derived data is not sent to Amazon Bedrock or to any other external AI service.',
+              'The local model receives the minimum stored facts needed through read-only tools - never video, images, or the Ring token. It cannot pass a check, resolve an incident, change readiness, or delete data.',
+              'Raw prompts are not stored. Generated notes you keep are stored and are covered by Delete All Data.',
+            ]
+          : aiEnabled
           ? [
               'Yes, when you ask the AI assistant for a handover note or an explanation. It receives the minimum stored facts needed through read-only tools - never video, images, or the Ring token.',
               'The AI explains recorded state. It cannot pass a check, resolve an incident, change readiness, or delete data.',
@@ -74,8 +87,8 @@ export function privacyNotice(aiEnabled: boolean) {
   };
 }
 
-export function dataRoutes(app: FastifyInstance, ctx: AppContext, aiEnabled: boolean): void {
-  app.get('/api/privacy', async () => privacyNotice(aiEnabled));
+export function dataRoutes(app: FastifyInstance, ctx: AppContext, aiEnabled: boolean, provider: AiProvider = 'bedrock'): void {
+  app.get('/api/privacy', async () => privacyNotice(aiEnabled, provider));
 
   /**
    * Delete All Data (spec sec. 16). Ends the Ring connection, drops every table,

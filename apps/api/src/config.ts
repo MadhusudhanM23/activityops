@@ -49,8 +49,18 @@ const schema = z
     // instance role in production).
     AWS_REGION: z.string().optional(),
     BEDROCK_MODEL_ID: z.string().optional(),
-    /** strands (preferred) | bedrock-converse (fallback) | off */
-    AI_RUNTIME: z.enum(['strands', 'bedrock-converse', 'off']).optional(),
+    /** strands (preferred) | bedrock-converse (fallback) | strands-local | strands-gemini (development/demo) | off */
+    AI_RUNTIME: z.enum(['strands', 'bedrock-converse', 'strands-local', 'strands-gemini', 'off']).optional(),
+    // strands-gemini: the same Strands agent against Google Gemini. The key is
+    // read by the Google SDK from GEMINI_API_KEY in the server's environment; it
+    // is checked for presence here and never kept in the config object.
+    GEMINI_MODEL_ID: z.string().default('gemini-2.5-flash'),
+    GEMINI_API_KEY: z.string().optional(),
+    // strands-local: the same Strands agent against a model served on this
+    // machine through an OpenAI-compatible endpoint (e.g. Ollama). The endpoint
+    // must be loopback, so "local" cannot quietly send data to another service.
+    LOCAL_MODEL_ID: z.string().optional(),
+    LOCAL_MODEL_BASE_URL: z.string().default('http://127.0.0.1:11434/v1'),
     AI_MAX_TOKENS: z.coerce.number().int().min(256).max(8192).default(2048),
     AI_TIMEOUT_MS: z.coerce.number().int().min(5000).max(300000).default(60000),
   })
@@ -69,7 +79,28 @@ const schema = z
     }
 
     const aiRuntime = env.AI_RUNTIME ?? (env.BEDROCK_MODEL_ID ? 'strands' : 'off');
-    if (aiRuntime !== 'off' && (!env.BEDROCK_MODEL_ID || !env.AWS_REGION)) {
+    if (aiRuntime === 'strands-gemini' && !env.GEMINI_API_KEY) {
+      context.addIssue({
+        code: 'custom',
+        path: ['GEMINI_API_KEY'],
+        message: 'AI_RUNTIME=strands-gemini needs GEMINI_API_KEY set in the server environment (never in a committed file).',
+      });
+      return z.NEVER;
+    }
+    if (aiRuntime === 'strands-local') {
+      if (!env.LOCAL_MODEL_ID) {
+        context.addIssue({ code: 'custom', path: ['LOCAL_MODEL_ID'], message: 'AI_RUNTIME=strands-local needs LOCAL_MODEL_ID (e.g. qwen3:4b).' });
+        return z.NEVER;
+      }
+      if (!isLoopbackUrl(env.LOCAL_MODEL_BASE_URL)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['LOCAL_MODEL_BASE_URL'],
+          message: 'LOCAL_MODEL_BASE_URL must be an http(s) URL on 127.0.0.1, localhost or ::1.',
+        });
+        return z.NEVER;
+      }
+    } else if (aiRuntime !== 'off' && aiRuntime !== 'strands-gemini' && (!env.BEDROCK_MODEL_ID || !env.AWS_REGION)) {
       context.addIssue({
         code: 'custom',
         path: ['BEDROCK_MODEL_ID'],
@@ -78,14 +109,26 @@ const schema = z
       return z.NEVER;
     }
 
+    const { GEMINI_API_KEY, ...rest } = env;
     return {
-      ...env,
+      ...rest,
+      GEMINI_API_KEY_SET: Boolean(GEMINI_API_KEY),
       AI_RUNTIME: aiRuntime,
       DEMO_PASSWORD: password,
       COOKIE_SECURE: env.COOKIE_SECURE ?? production,
       TRUST_PROXY: env.TRUST_PROXY ?? production,
     };
   });
+
+/** True only for http(s) URLs whose host is this machine. */
+export function isLoopbackUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
 
 export function loadConfig(source: NodeJS.ProcessEnv = process.env) {
   return schema.parse(source);

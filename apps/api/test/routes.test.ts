@@ -326,6 +326,104 @@ describe('live check workflow over HTTP', () => {
     expect(run.incidents[0]).toMatchObject({ severity: 'BLOCKER', status: 'OPEN' });
   });
 
+  it('a later run lists an open incident carried over from an earlier run of the same check', async () => {
+    const h = await harness();
+    const first = await liveRun(h);
+    await h.call('POST', `/api/runs/${first.runId}/checks/${first.ringCheckId}/start`);
+    const offline = (url: string) =>
+      url.includes('/status')
+        ? { body: { data: { type: 'device-status', id: 's', attributes: { online: false, reported_at: '2026-10-08T09:00:00Z' } } } }
+        : { body: { data: [] } };
+    h.setRoute(offline);
+    await h.call('POST', `/api/runs/${first.runId}/checks/${first.ringCheckId}/sync`);
+
+    const templateId = 'template-live-opening';
+    const second = (await h.call('POST', '/api/runs', { templateId })).json();
+    await h.call('POST', `/api/runs/${second.id}/checks/${first.ringCheckId}/start`);
+    h.setRoute(offline);
+    const run = (await h.call('POST', `/api/runs/${second.id}/checks/${first.ringCheckId}/sync`)).json().run;
+
+    // Readiness already counted the open incident; now the panel shows it too, labelled.
+    expect(run.readiness.status).toBe('BLOCKED');
+    expect(run.incidents).toHaveLength(1);
+    expect(run.incidents[0]).toMatchObject({ severity: 'BLOCKER', status: 'OPEN', carriedOver: true });
+    const firstRun = (await h.call('GET', `/api/runs/${first.runId}`)).json();
+    expect(firstRun.incidents[0].carriedOver).toBe(false);
+  });
+
+  it("cancelling a run closes its untouched coverage incident under the canceller's name, so the next run is not blocked", async () => {
+    const h = await harness();
+    const first = await liveRun(h);
+    await h.call('POST', `/api/runs/${first.runId}/checks/${first.ringCheckId}/start`);
+    h.setRoute((url) =>
+      url.includes('/status')
+        ? { body: { data: { type: 'device-status', id: 's', attributes: { online: false, reported_at: '2026-10-08T09:00:00Z' } } } }
+        : { body: { data: [] } },
+    );
+    const incidentId = (await h.call('POST', `/api/runs/${first.runId}/checks/${first.ringCheckId}/sync`)).json().run.incidents[0].id;
+
+    expect((await h.call('POST', `/api/runs/${first.runId}/cancel`)).statusCode).toBe(200);
+
+    const closed = h.db.prepare('SELECT status, dismissed_reason FROM incident WHERE id = ?').get(incidentId) as { status: string; dismissed_reason: string };
+    expect(closed.status).toBe('DISMISSED');
+    expect(closed.dismissed_reason).toMatch(/Run cancelled/);
+    const action = h.db.prepare("SELECT actor FROM incident_action WHERE incident_id = ? AND action = 'DISMISSED'").get(incidentId) as { actor: string };
+    expect(action.actor).toBe('demo.operator');
+
+    const templateId = 'template-live-opening';
+    const second = (await h.call('POST', '/api/runs', { templateId })).json();
+    expect(second.incidents).toEqual([]);
+    expect(second.readiness.reasons.some((r: { code: string }) => /INCIDENT/.test(r.code))).toBe(false);
+  });
+
+  it('connecting builds opening, closing and shift-handover checklists from the discovered devices', async () => {
+    const h = await harness();
+    await liveRun(h);
+    const templates = (await h.call('GET', '/api/templates')).json() as { id: string; name: string; checkCount: number }[];
+    expect(templates.map((t) => t.id).sort()).toEqual(['template-live-closing', 'template-live-handover', 'template-live-opening']);
+    const closing = (await h.call('POST', '/api/runs', { templateId: 'template-live-closing' })).json();
+    expect(closing.triggerType).toBe('CLOSING');
+    expect(closing.checks.filter((c: { requirementType: string }) => c.requirementType === 'RING_REQUIRED').length).toBeGreaterThan(0);
+    expect(closing.checks.map((c: { label: string }) => c.label)).toContain('Alarm armed and all zones set');
+  });
+
+  it('cancelling a run leaves an operator FAIL incident open - a site problem carries over', async () => {
+    const h = await harness();
+    const first = await liveRun(h);
+    const started = (await h.call('POST', `/api/runs/${first.runId}/checks/${first.manualCheckId}/start`)).json();
+    const attemptId = started.checks.find((c: { id: string }) => c.id === first.manualCheckId).latestAttempt.id;
+    await h.call('POST', `/api/attempts/${attemptId}/decision`, { decision: 'FAIL', reason: 'Zone 3 fault' });
+
+    await h.call('POST', `/api/runs/${first.runId}/cancel`);
+
+    const templateId = 'template-live-opening';
+    const second = (await h.call('POST', '/api/runs', { templateId })).json();
+    expect(second.incidents).toHaveLength(1);
+    expect(second.incidents[0]).toMatchObject({ status: 'OPEN', carriedOver: true });
+  });
+
+  it("dismissing a carried-over incident is recorded in the later run's audit trail", async () => {
+    const h = await harness();
+    const first = await liveRun(h);
+    await h.call('POST', `/api/runs/${first.runId}/checks/${first.ringCheckId}/start`);
+    h.setRoute((url) =>
+      url.includes('/status')
+        ? { body: { data: { type: 'device-status', id: 's', attributes: { online: false, reported_at: '2026-10-08T09:00:00Z' } } } }
+        : { body: { data: [] } },
+    );
+    const incidentId = (await h.call('POST', `/api/runs/${first.runId}/checks/${first.ringCheckId}/sync`)).json().run.incidents[0].id;
+
+    const templateId = 'template-live-opening';
+    const second = (await h.call('POST', '/api/runs', { templateId })).json();
+    await h.call('POST', `/api/runs/${second.id}/checks/${first.manualCheckId}/start`);
+    advance(h, 5);
+    const dismissed = await h.call('POST', `/api/incidents/${incidentId}/transition`, { to: 'DISMISSED', reason: 'Raised on a cancelled run' });
+    expect(dismissed.statusCode).toBe(200);
+
+    const audit = (await h.call('GET', `/api/runs/${second.id}/audit`)).json();
+    expect(audit.some((e: { action: string; entityType?: string }) => /DISMISS/.test(e.action))).toBe(true);
+  });
+
   it('runs the full fail -> recheck -> resolve -> approve path', async () => {
     const h = await harness();
     const { runId, ringCheckId, manualCheckId } = await liveRun(h);

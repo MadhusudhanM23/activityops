@@ -1,0 +1,53 @@
+/**
+ * A real handover note for the recorded demo run, captured on 2026-10-10 from the
+ * Strands agent running against Google Gemini (AI_RUNTIME=strands-gemini) with
+ * `npm run ai:smoke`. Copied verbatim from evidence/ai/strands-gemini-handover.json:
+ * text, model, provider and tool trace are exactly what the run produced.
+ *
+ * It is shown labelled as recorded output and as not Amazon Bedrock, so judges can
+ * see the agent's work without configuring a model.
+ */
+export const RECORDED_AI_NOTE = {
+  "capturedAt": "2026-10-10T17:44:34.143Z",
+  "modelId": "gemini-2.5-flash",
+  "provider": "google",
+  "trace": [
+    {
+      "tool": "getVerificationRun",
+      "at": "2026-10-10T17:44:26.789Z",
+      "ok": true,
+      "summary": "12 field(s)"
+    },
+    {
+      "tool": "getReadinessState",
+      "at": "2026-10-10T17:44:26.794Z",
+      "ok": true,
+      "summary": "3 field(s)"
+    },
+    {
+      "tool": "getRecentChecks",
+      "at": "2026-10-10T17:44:26.798Z",
+      "ok": true,
+      "summary": "4 item(s)"
+    },
+    {
+      "tool": "getOpenIncidents",
+      "at": "2026-10-10T17:44:26.801Z",
+      "ok": true,
+      "summary": "0 item(s)"
+    },
+    {
+      "tool": "getDeviceStatus",
+      "at": "2026-10-10T17:44:26.803Z",
+      "ok": true,
+      "summary": "1 item(s)"
+    },
+    {
+      "tool": "getNextActions",
+      "at": "2026-10-10T17:44:26.807Z",
+      "ok": true,
+      "summary": "1 item(s)"
+    }
+  ],
+  "text": "Handover Note:\n\n**Status**\nThis is an OPENING type run, a RECORDED DEMO - Ring Playground capture: 2026-10-07. Readiness is READY. The run was approved by demo.operator at 2026-10-07T11:33:30.000Z. The system integration state is HEALTHY, and the readiness reason is: A human approver recorded final approval.\n\n**Completed checks**\n*   Front entrance live-view walkthrough (check-recorded-entrance): PASSED in 1 attempt. Ring session observed. Operator note: Entrance shutters up, signage in place, walkway clear of deliveries.\n*   Cash counter float counted (check-recorded-float): PASSED in 1 attempt.\n\n**Failures and rechecks**\n*   Alarm panel disarmed and zones reviewed (check-recorded-alarm): PASSED after 2 attempts. Operator note: Contact reseated; zone 3 clear on panel; all zones reviewed.\n*   Previous shift notes reviewed (check-recorded-notes): OVERRIDDEN after 2 attempts.\n\n**Open items**\nThere are no open incidents on this run.\nRing device \"Playground Device (front entrance)\" was last reported AVAILABLE at 2026-10-07T11:21:00.000Z.\n\n**Next actions**\nNothing further on this run. Hand over to the next shift."
+} as const;

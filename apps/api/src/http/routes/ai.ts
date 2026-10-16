@@ -58,6 +58,16 @@ export function aiRoutes(app: FastifyInstance, ctx: AppContext, model: AiRuntime
       });
     }
 
+    // Gemini's free tier may use inputs to improve Google products, so live
+    // Ring-derived data is never sent to it - only the published recorded demo.
+    if (model.provider === 'google' && run.dataMode !== 'RECORDED_DEMO') {
+      return reply.status(503).send({
+        error: 'AI_NOT_FOR_LIVE_DATA',
+        message:
+          'This deployment uses Google Gemini for the AI assistant, which only drafts notes for the recorded demo run. Live Ring data is not sent to it. Readiness and every recorded check are unaffected.',
+      });
+    }
+
     if (body.task === 'INCIDENT_SUMMARY') {
       const incident = run.incidents.find((i) => i.id === body.incidentId);
       if (!incident) return reply.status(404).send({ error: 'NOT_FOUND', message: 'No such incident on this run.' });
@@ -72,7 +82,7 @@ export function aiRoutes(app: FastifyInstance, ctx: AppContext, model: AiRuntime
     } catch (error) {
       const unavailable = classifyAiError(error);
       // Log the kind only: never the AWS error text, which can carry account ids and ARNs.
-      request.log.warn({ aiUnavailable: unavailable.kind, runtime: model.runtime }, 'AI request failed');
+      request.log.warn({ aiUnavailable: unavailable.kind, runtime: model.runtime, provider: model.provider }, 'AI request failed');
       return reply.status(503).send({
         error: 'AI_UNAVAILABLE',
         reason: unavailable.kind,
@@ -91,13 +101,13 @@ export function aiRoutes(app: FastifyInstance, ctx: AppContext, model: AiRuntime
         savedId,
         body.runId,
         body.task,
-        JSON.stringify({ modelId: result.modelId, requestedBy: who, trace: result.trace }),
+        JSON.stringify({ modelId: result.modelId, provider: model.provider, requestedBy: who, trace: result.trace }),
         result.text,
         ctx.now().toISOString(),
       );
     }
 
-    return { source: 'AI', savedId, ...result };
+    return { source: 'AI', savedId, provider: model.provider, ...result };
   });
 
   /** Saved AI notes for a run. Readable anonymously for the recorded demo, like the run itself. */

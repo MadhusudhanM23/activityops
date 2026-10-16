@@ -12,20 +12,26 @@ import type { ToolContext } from './tools.js';
  *     "using the same tool contracts".
  * Both share the tool set, system prompt, step limit and output guard.
  */
+/** Where the model runs. Shown on every note so a local model is never mistaken for Bedrock. */
+export type AiProvider = 'bedrock' | 'local' | 'google' | 'test';
+
 export interface AiRuntime {
   readonly runtime: 'strands' | 'bedrock-converse' | 'test';
+  readonly provider: AiProvider;
   readonly modelId: string;
   run(ctx: ToolContext, task: AgentTask, options?: { incidentId?: string; now?: () => Date }): Promise<AgentResult>;
 }
 
 export class ConverseRuntime implements AiRuntime {
   readonly modelId: string;
+  readonly provider: AiProvider;
 
   constructor(
     private readonly model: ModelClient,
     readonly runtime: 'bedrock-converse' | 'test' = 'bedrock-converse',
   ) {
     this.modelId = model.modelId;
+    this.provider = runtime === 'test' ? 'test' : 'bedrock';
   }
 
   async run(ctx: ToolContext, task: AgentTask, options: { incidentId?: string; now?: () => Date } = {}): Promise<AgentResult> {

@@ -1,7 +1,7 @@
 import { Agent, tool, type JSONSchema, type Model } from '@strands-agents/sdk';
 import { finalise, instructionFor, MAX_STEPS, summarise, SYSTEM_PROMPT, type AgentResult, type AgentTask, type Ending, type TraceEntry } from './agent.js';
 import { AiUnavailableError, classifyAiError } from './errors.js';
-import type { AiRuntime } from './runtime.js';
+import type { AiProvider, AiRuntime } from './runtime.js';
 import { runTool, TOOL_SPECS, type ToolContext } from './tools.js';
 
 /**
@@ -46,11 +46,13 @@ function blocks(value: unknown, key: string): Record<string, unknown>[] {
 export class StrandsRuntime implements AiRuntime {
   readonly runtime = 'strands' as const;
   readonly modelId: string;
+  readonly provider: AiProvider;
 
   constructor(
     private readonly model: Model,
-    private readonly options: { timeoutMs: number; modelId?: string },
+    private readonly options: { timeoutMs: number; modelId?: string; provider?: AiProvider },
   ) {
+    this.provider = options.provider ?? 'bedrock';
     const configured = (model.getConfig() as { modelId?: string }).modelId;
     this.modelId = options.modelId ?? configured ?? 'unknown';
   }

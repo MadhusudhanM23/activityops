@@ -20,6 +20,7 @@ const RULES = [
   { name: 'GitHub token', pattern: /\b(gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})\b/g },
   { name: 'AWS access key id', pattern: /\b(AKIA|ASIA)[A-Z0-9]{16}\b/g },
   { name: 'AWS secret access key', pattern: /aws_secret_access_key\s*[=:]\s*["']?[A-Za-z0-9/+=]{40}/gi },
+  { name: 'Google API key', pattern: /AIza[0-9A-Za-z_-]{35}/g },
   { name: 'private key', pattern: /-----BEGIN [A-Z ]*PRIVATE KEY-----/g },
   { name: 'JWT', pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g },
   { name: 'Ring provider id', pattern: /\bava1\.ring\.(device|history\.event|account|client)\.[A-Z0-9]{40,}\b/g },

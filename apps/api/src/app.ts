@@ -96,7 +96,7 @@ export async function buildApp(overrides: Partial<AppDeps> = {}): Promise<Fastif
   aiRoutes(app, ctx, model);
   // The notice reflects whether AI actually runs, not whether a model id is configured:
   // an id with no working client must not make the notice claim data goes to Bedrock.
-  dataRoutes(app, ctx, overrides.aiEnabled ?? model !== null);
+  dataRoutes(app, ctx, overrides.aiEnabled ?? model !== null, model?.provider);
 
   // Production: one process serves the API and the built frontend; Caddy
   // terminates TLS in front of it (spec sec. 18).

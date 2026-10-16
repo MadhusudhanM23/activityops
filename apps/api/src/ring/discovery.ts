@@ -16,10 +16,47 @@ import { row } from '../db/query.js';
 export const LIVE_SITE_ID = 'site-live-playground';
 export const LIVE_TEMPLATE_ID = 'template-live-opening';
 
-const NON_RING_CHECKS = [
-  { id: 'check-live-alarm', label: 'Alarm panel disarmed and zones reviewed', required: 1, order: 100 },
-  { id: 'check-live-notes', label: 'Previous shift notes reviewed', required: 0, order: 110 },
-];
+/**
+ * The live checklists built from whatever devices the account returns: one
+ * Ring-backed walkthrough per device, plus manual checks. The opening template
+ * keeps its original ids (runs and tests depend on them).
+ */
+const LIVE_TEMPLATES = [
+  {
+    id: LIVE_TEMPLATE_ID,
+    name: 'Live Playground opening check',
+    trigger: 'OPENING',
+    ringCheck: (deviceId: string) => `check-live-ring-${deviceId}`,
+    ringLabel: 'Live view walkthrough',
+    manual: [
+      { id: 'check-live-alarm', label: 'Alarm panel disarmed and zones reviewed', required: 1, order: 100 },
+      { id: 'check-live-notes', label: 'Previous shift notes reviewed', required: 0, order: 110 },
+    ],
+  },
+  {
+    id: 'template-live-closing',
+    name: 'Live Playground closing check',
+    trigger: 'CLOSING',
+    ringCheck: (deviceId: string) => `check-live-closing-ring-${deviceId}`,
+    ringLabel: 'Closing walkthrough',
+    manual: [
+      { id: 'check-live-closing-alarm', label: 'Alarm armed and all zones set', required: 1, order: 100 },
+      { id: 'check-live-closing-cash', label: 'Cash counted and secured in the safe', required: 1, order: 110 },
+      { id: 'check-live-closing-power', label: 'Lights and non-essential equipment off', required: 0, order: 120 },
+    ],
+  },
+  {
+    id: 'template-live-handover',
+    name: 'Live Playground shift handover',
+    trigger: 'HANDOVER',
+    ringCheck: (deviceId: string) => `check-live-handover-ring-${deviceId}`,
+    ringLabel: 'Handover walkthrough',
+    manual: [
+      { id: 'check-live-handover-incidents', label: 'Open incidents reviewed with the incoming manager', required: 1, order: 100 },
+      { id: 'check-live-handover-note', label: 'Handover note shared with the incoming manager', required: 0, order: 110 },
+    ],
+  },
+] as const;
 
 export interface DiscoveryResult {
   devices: NormalizedDevice[];
@@ -42,11 +79,13 @@ export async function discoverDevices(
          ON CONFLICT(id) DO NOTHING`,
     ).run(LIVE_SITE_ID);
 
-    db.prepare(
-      `INSERT INTO verification_template (id, site_id, name, trigger_type, enabled)
-         VALUES (?, ?, 'Live Playground opening check', 'OPENING', 1)
-         ON CONFLICT(id) DO NOTHING`,
-    ).run(LIVE_TEMPLATE_ID, LIVE_SITE_ID);
+    for (const template of LIVE_TEMPLATES) {
+      db.prepare(
+        `INSERT INTO verification_template (id, site_id, name, trigger_type, enabled)
+           VALUES (?, ?, ?, ?, 1)
+           ON CONFLICT(id) DO NOTHING`,
+      ).run(template.id, LIVE_SITE_ID, template.name, template.trigger);
+    }
 
     let order = 1;
     for (const device of devices) {
@@ -78,23 +117,26 @@ export async function discoverDevices(
         );
       }
 
-      const checkId = `check-live-ring-${deviceId}`;
-      db.prepare(
-        `INSERT INTO verification_check
-           (id, template_id, device_id, label, requirement_type, required, session_window_seconds, sort_order)
-         VALUES (?, ?, ?, ?, 'RING_REQUIRED', 1, ?, ?)
-         ON CONFLICT(id) DO NOTHING`,
-      ).run(checkId, LIVE_TEMPLATE_ID, deviceId, `Live view walkthrough - ${device.label}`, sessionWindowSeconds, order);
+      for (const template of LIVE_TEMPLATES) {
+        db.prepare(
+          `INSERT INTO verification_check
+             (id, template_id, device_id, label, requirement_type, required, session_window_seconds, sort_order)
+           VALUES (?, ?, ?, ?, 'RING_REQUIRED', 1, ?, ?)
+           ON CONFLICT(id) DO NOTHING`,
+        ).run(template.ringCheck(deviceId), template.id, deviceId, `${template.ringLabel} - ${device.label}`, sessionWindowSeconds, order);
+      }
       order += 1;
     }
 
-    for (const check of NON_RING_CHECKS) {
-      db.prepare(
-        `INSERT INTO verification_check
-           (id, template_id, device_id, label, requirement_type, required, session_window_seconds, sort_order)
-         VALUES (?, ?, NULL, ?, 'NON_RING', ?, ?, ?)
-         ON CONFLICT(id) DO NOTHING`,
-      ).run(check.id, LIVE_TEMPLATE_ID, check.label, check.required, sessionWindowSeconds, check.order);
+    for (const template of LIVE_TEMPLATES) {
+      for (const check of template.manual) {
+        db.prepare(
+          `INSERT INTO verification_check
+             (id, template_id, device_id, label, requirement_type, required, session_window_seconds, sort_order)
+           VALUES (?, ?, NULL, ?, 'NON_RING', ?, ?, ?)
+           ON CONFLICT(id) DO NOTHING`,
+        ).run(check.id, template.id, check.label, check.required, sessionWindowSeconds, check.order);
+      }
     }
     db.exec('COMMIT');
   } catch (error) {

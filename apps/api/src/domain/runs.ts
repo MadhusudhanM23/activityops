@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { DomainError, ERR } from './errors.js';
 import { rows } from '../db/query.js';
 import { writeAudit } from './audit.js';
+import { transitionIncident } from './incidents.js';
 import { deriveReadiness, type CheckSnapshot, type ReadinessResult, type RunSnapshot } from './readiness.js';
 import { hasQualifyingEvidence, latestAttempt } from './attempts.js';
 import type { AttemptStatus, IncidentSeverity, IntegrationState } from './types.js';
@@ -170,4 +171,26 @@ export function cancelRun(db: DatabaseSync, runId: string, actor: string, now: D
     entityId: runId,
     at: now,
   });
+
+  // Coverage incidents this run raised that no person has acted on (every action is
+  // the system's) are about this run's own check windows. Only one incident can be
+  // open per check (sec. 13), so left open they would block every later run. They
+  // are dismissed under the canceller's name, with a reason, in the same transaction.
+  // Operator FAILs - real site problems - and anything a person touched stay open (D-064).
+  const untouched = rows<{ id: string }>(
+    db,
+    `SELECT i.id FROM incident i
+      WHERE i.run_id = ? AND i.status NOT IN ('RESOLVED', 'DISMISSED')
+        AND NOT EXISTS (SELECT 1 FROM incident_action a WHERE a.incident_id = i.id AND a.actor <> 'system')`,
+    runId,
+  );
+  for (const { id } of untouched) {
+    transitionIncident(db, {
+      incidentId: id,
+      to: 'DISMISSED',
+      actor,
+      reason: "Run cancelled - this coverage incident was about that run's check window, which no longer applies",
+      now,
+    });
+  }
 }

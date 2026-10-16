@@ -39,8 +39,8 @@ attestation is the business decision. ActivityOps never says "person detected", 
 
 ## Judge Test — 5 Minutes
 
-> **Hosted URL:** not yet live — see [Known limitations](#known-limitations). Until it is, run the
-> app locally in about two minutes with [Run it locally](#run-it-locally).
+> **No hosted instance.** Run the app locally in about two minutes with
+> [Run it locally](#run-it-locally) — Review Mode needs no sign-in, no Ring token and no AI key.
 
 1. **Open the app.** No sign-in is needed for Review Mode.
 2. **Open the recorded run** under *Review Mode* — "Opening readiness", labelled
@@ -54,13 +54,15 @@ attestation is the business decision. ActivityOps never says "person detected", 
    attributed to *system*; resolution was approved by a person.
 6. **Notice the override** on *Previous shift notes*: shown as **OVERRIDDEN**, never as a PASS.
 7. **Read the readiness panel's "What should I do next?"** — configured actions computed
-   deterministically, no AI involved. (AI-drafted handover notes are not available yet — see Known
-   limitations.)
-8. **View the audit trail** at the bottom of the run.
-9. *Optional, Live Test:* **Sign in** (credentials below), tick the data-practices notice, paste a
-   fresh **Ring Developer Playground** OAuth token, and connect. ActivityOps discovers however many
-   devices the account has and builds a live checklist from them.
-10. Start a run, **Start Ring check**, open Ring live view in the Playground, then **Sync Ring
+   deterministically, no AI involved.
+8. **Read the AI handover note** under *Operations copilot*. It is real output from our Strands agent,
+   captured on 2026-10-10 and labelled **Recorded output** and **Google Gemini · not Amazon
+   Bedrock**. *What the agent read* lists the read-only tools it chose to call.
+9. **View the audit trail** at the bottom of the run.
+10. *Optional, Live Test:* **Sign in** (credentials below), tick the data-practices notice, paste a
+    fresh **Ring Developer Playground** OAuth token, and connect. ActivityOps discovers however many
+    devices the account has and builds a live checklist from them.
+11. Start a run, **Start Ring check**, open Ring live view in the Playground, then **Sync Ring
     history** to bind the session and unlock PASS.
 
 The interface always distinguishes **RECORDED DEMO**, **LIVE PLAYGROUND**, **SIMULATED** and
@@ -71,7 +73,6 @@ about the site).
 
 | Where | Username | Password |
 |---|---|---|
-| Hosted demo | `demo.operator` | Published here when the hosted instance goes live |
 | Local development | `demo.operator` | `activityops-dev-only` (the server refuses this value in production) |
 
 ## Architecture
@@ -87,7 +88,8 @@ flowchart LR
   end
   UI -- "HTTPS, session cookie,<br/>CSRF token" --> Caddy
   App -- "server-to-server<br/>Bearer token (memory only)" --> Ring[Ring Partner API<br/>devices, status, Event History]
-  App -. "Strands Agents<br/>(read-only tools)" .-> Bedrock[Amazon Bedrock]
+  App -. "Strands Agents<br/>(read-only tools)" .-> Bedrock[Amazon Bedrock<br/>blocked: account quota]
+  App -. "Strands Agents<br/>(recorded demo run only)" .-> Gemini[Google Gemini]
   SM[AWS Secrets Manager] -. "IAM instance role" .-> App
 ```
 
@@ -116,7 +118,8 @@ flowchart LR
 | Ring media / snapshot APIs | — | **Deliberately never called** by the readiness workflow |
 | Amazon EC2 + encrypted Amazon EBS + Docker Compose + Caddy | Hosting; SQLite on a persistent encrypted volume | Container stack built and verified locally; **not yet deployed** |
 | IAM instance role, AWS Secrets Manager | No long-lived keys on the host; password from Secrets Manager | Runbook and script written; **not yet deployed** |
-| Amazon Bedrock, Strands Agents for TypeScript | Read-only operations copilot drafting handover notes and incident summaries | **Implemented; not yet run against real Bedrock** — tested offline with the real Strands loop and a scripted model; awaiting AWS account access |
+| Strands Agents for TypeScript | Read-only operations copilot: an agent that chooses among ten read-only tools to draft handover notes and incident summaries | **Used at runtime.** Run for real on 2026-10-10 against Google Gemini (`AI_RUNTIME=strands-gemini`): completed in about 10 s with 6-7 tool calls ([evidence](evidence/ai/strands-gemini-handover.json)) |
+| Amazon Bedrock (via Strands `BedrockModel`, plus a direct Converse fallback) | The production model path for the same agent | **Implemented and tested offline; invocation blocked** — our new Free-plan account has a 0.0 token quota on every model ([R-009](docs/activityops/RISKS_AND_BLOCKERS.md), [T9](evidence/day-1/T9-bedrock.md)). One setting switches the agent back once it opens |
 | Amazon CloudWatch | Log shipping | Logs proven free of secrets; not yet connected |
 
 ## Privacy and data handling
@@ -152,16 +155,18 @@ deliberately disabling any one of them makes the test suite fail.
 
 Stated plainly, so nothing here is mistaken for something it is not:
 
-- **Not yet hosted.** The deployment is designed and verified in local Docker, but no AWS account was
-  available during the build, so there is no public URL yet.
-- **The Bedrock integration has not yet run against real Bedrock.** The Strands Agents + Amazon
-  Bedrock runtime (and a direct Bedrock Converse fallback) is implemented and tested offline: the
-  real Strands agent loop runs against a scripted model, the Converse adapter against a stubbed
-  client, and the real AWS SDK credential chain was exercised on a machine with no credentials
-  (clean "no credentials" response). Whether a Claude model is invocable from our AWS account (Day-1
-  T9) and whether tool use works there (T10) is **unverified** — AWS account access was unavailable.
-  Until then the hosted copilot runs with AI off: *Why are we not ready?* and *What should I do
-  next?* still work (they are deterministic by design), and Review Mode has no AI handover artifact.
+- **Not hosted.** The EC2 deployment is designed and every container step is verified in local
+  Docker, but it is not deployed: the hackathon does not require a hosted URL, and our AWS account
+  cannot invoke Bedrock (below). Judges run it locally.
+- **The agent has not yet run on Amazon Bedrock.** AWS access works, but our two-day-old Free-plan
+  account has a 0.0 daily token quota on every Bedrock model, so every call is refused
+  ([T9](evidence/day-1/T9-bedrock.md), friction log F-08/F-09). The **same Strands agent** - same
+  tools, prompt, step limit and output guard - has run for real against **Google Gemini**, and that
+  output is what Review Mode shows, labelled as such. Because Google may use free-tier inputs to
+  improve its products, the Gemini path refuses live runs and drafts only for the recorded demo.
+  T9/T10 (Bedrock invocation and tool use on Bedrock) remain unverified.
+- **No local model on our hardware.** A local-model path (`AI_RUNTIME=strands-local`, Ollama) exists,
+  but measured 4 tokens/s on the 8 GB, no-GPU build machine - too slow to use.
 - **The Playground device was offline** throughout testing, so no fresh live-view session could be
   generated. The recorded run uses the one real session record that was captured.
 - **Unmeasured timing.** Provider indexing delay could not be measured, so the post-window wait
@@ -190,7 +195,7 @@ Open <http://localhost:5173> — use `localhost`, not `127.0.0.1`: the Vite dev 
 IPv6 only. Review Mode works immediately; sign in with the local credentials above for Live Test.
 
 ```bash
-npm test               # 247 tests, no AWS credentials needed
+npm test               # 267 tests, no AWS credentials needed
 npm run typecheck
 node scripts/scan-secrets.mjs --history
 ```
@@ -203,6 +208,19 @@ docker run --rm -p 8080:8080 -e DEMO_PASSWORD='<12+ characters>' -v activityops-
 ```
 
 AWS deployment: [`deploy/README.md`](deploy/README.md).
+
+### Running the AI copilot with Google Gemini (what Review Mode's note came from)
+
+1. Create a free API key at Google AI Studio. Put it in **your own terminal's** environment only:
+   `setx GEMINI_API_KEY "<key>"` on Windows (then open a new terminal), or `export GEMINI_API_KEY=...`.
+2. Run one real handover for the recorded demo run:
+
+   ```bash
+   AI_RUNTIME=strands-gemini npm run ai:smoke --workspace apps/api
+   ```
+
+3. To use it in the app, start the API with `AI_RUNTIME=strands-gemini`. Live runs are refused by
+   design; the recorded demo run works. Free-tier rate limits apply (one run is about 7 model calls).
 
 ### Testing the AI copilot with real Amazon Bedrock
 
@@ -237,7 +255,7 @@ matter most:
 | `SESSION_WINDOW_SECONDS` / `DEMO_SESSION_WINDOW_SECONDS` | How long after arming a session can count (600 / 300) |
 | `CLOCK_SKEW_ALLOWANCE_SECONDS` | Grace before arming, for clock mismatch only (30) |
 | `BEDROCK_MODEL_ID`, `AWS_REGION` | AI copilot model and region. Unset = AI off. A model id without a region refuses to start |
-| `AI_RUNTIME` | `strands` (default when a model is set), `bedrock-converse` (fallback) or `off` |
+| `AI_RUNTIME` | `strands` (default when a model is set), `bedrock-converse` (fallback), `strands-gemini`, `strands-local` or `off` |
 
 ## How this was built
 

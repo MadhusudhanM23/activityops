@@ -310,3 +310,100 @@ request; the user can retry.
 One real handover against the recorded demo run through the server's own runtime, printing status,
 trace and note, or the failure kind and next step. It also flags a run in which no tool was called,
 so T10 cannot be claimed from a text-only reply.
+
+## D-061 — 2026-10-10 — The same Strands agent on a local model or Gemini, labelled, while Bedrock is blocked
+Bedrock invocation is blocked on the project's AWS account (R-009), and the owner will not upgrade
+to a paid plan. The hackathon rules list the Strands SDK as a qualifying AWS service in its own
+right. So `AI_RUNTIME=strands-local` runs the unchanged `StrandsRuntime` - same ten read-only tools,
+system prompt, step limit, timeout and output guard - with Strands' `OpenAIModel` pointed at an
+OpenAI-compatible server on the same machine (Ollama).
+
+Honesty and privacy are structural, not just wording:
+- `LOCAL_MODEL_BASE_URL` must be loopback (`127.0.0.1`, `localhost`, `::1`); any other host is
+  refused at startup, so "local" cannot quietly send run data to an external service.
+- Every runtime reports a `provider` (`bedrock` | `local` | `test`). It is saved with each note and
+  shown on it: "Strands agent · local model · not Amazon Bedrock".
+- The privacy notice states that a local model sends nothing to Bedrock or any external AI service.
+
+**Measured on the build machine (7.9 GB RAM, no GPU), `qwen3:4b`:** 4.1 tokens/s generation and
+3.6 tokens/s prompt processing. The agent's prompt and tool schemas alone would take over ten
+minutes per step, and the first full run hit the 300 s timeout. The path works on capable hardware
+but not on this machine, so it is kept but not used for the demo.
+
+**Hence `AI_RUNTIME=strands-gemini`:** the same `StrandsRuntime` with Strands' `GoogleModel`
+(default `gemini-2.5-flash`, `@google/genai` 2.28.0, production audit 0).
+- The key is read by the Google SDK from `GEMINI_API_KEY` in the server environment. Config checks
+  only that it is present and drops it (`GEMINI_API_KEY_SET: true`), so it cannot reach a log or a
+  response; a test asserts the serialized config never contains it. The secret scanner now flags
+  Google API keys.
+- Google may use free-tier inputs to improve its products, so a Gemini-backed copilot **refuses live
+  runs** (`503 AI_NOT_FOR_LIVE_DATA`, model never called) and drafts only for the published recorded
+  demo run. The privacy notice says this; notes are labelled "Strands agent · Google Gemini · not
+  Amazon Bedrock".
+
+Neither path counts as T9/T10 passing; those still need Bedrock.
+`openai` 6.49.0 was added as the optional peer Strands needs for `OpenAIModel` (production audit: 0).
+
+## D-062 — 2026-10-10 — A run lists open incidents carried over from earlier runs of its checks
+An incident belongs to its check and stays open across runs until resolved - a broken contact is
+still broken at the next shift - and readiness already counts every open incident on the run's
+checks. The run's Incidents panel, however, listed only incidents raised during that run, so a later
+run could read "Blocked" beside "No incidents". The panel now also lists open incidents on the run's
+checks raised earlier, labelled "From an earlier run". How incidents are raised, deduplicated or
+counted is unchanged; this is display only.
+Addendum (2026-10-12): actions on such a carried-over incident taken while a later run is open
+(from its start until approval or cancellation) now also appear in that run's audit trail. Found in
+a real Playground run: dismissing the carried-over BLOCKER unblocked approval, but the dismissal was
+only in the earlier run's trail. A run that has not started any check has no start time, so it shows
+none of these actions - a known, minor gap.
+
+## D-063 — 2026-10-12 — Frontend redesign for first-time users; React + Vite kept
+A real Live Test showed the UI did not guide a new user: the Ring check's steps were implicit, the
+check window was plain text (a window was missed), and every card had equal weight. The redesign
+adds: a "start here" home with two paths (recorded run / live test), a hero preview of the recorded
+run, a live-test guide, a four-step Ring check stepper with a live window countdown, a run summary
+bar (progress ring, readiness, countdown, approval), a two-column run page, an incident lifecycle
+track, toasts for every action, a split sign-in page, a logo and a compact type scale (Inter).
+
+- **Next.js was requested and not adopted.** Its runtime injects inline scripts that the
+  production CSP (`script-src 'self'`) blocks, and it would replace the single Fastify process that
+  serves the built UI. No judge-visible gain for that risk.
+- **Toasts are in-house** (`src/toast.tsx`): common toast packages inject a `<style>` element at
+  runtime, which `style-src 'self'` blocks. Inter is self-hosted (`@fontsource-variable/inter`)
+  for the same reason; icons are `lucide-react` (inline SVG).
+- **Behaviour unchanged.** Every API call, honesty label, the PASS gate, the token's password field
+  and all evidence wording are as before; 269 tests pass, including the UI wording gate.
+- The "Fill demo account" button exists only in development builds (`import.meta.env.DEV`); the
+  production bundle was checked to contain no demo password.
+- The Playground link now points to `developer.amazon.com/ring/console/playground`, verified during
+  the 2026-10-12 live run (closes R-006).
+
+## D-064 — 2026-10-14 — Cancelling a run closes the coverage incidents it raised that nobody touched
+Found in the 2026-10-12 live run: a run that missed its check window was cancelled, and its
+system-raised BLOCKER ("window expired, no qualifying session") then blocked the next run until
+someone dismissed it. Only one incident can be open per check (sec. 13, enforced by a partial unique
+index), so scoping such incidents to their own run was not an option.
+
+Rule: when a person cancels a run, every open incident that run raised whose actions are all the
+system's is moved to DISMISSED **under the canceller's name**, with the reason "Run cancelled - this
+coverage incident was about that run's check window, which no longer applies", in the same
+transaction as the cancellation. The lifecycle and audit trail show it.
+
+- Operator FAILs (actor is a person) are real site problems: they stay open and carry over (D-062).
+- An incident any person has acted on (acknowledged, a FAIL attached, ...) is left alone.
+- Approved by the project owner on 2026-10-14. Two route tests cover both cases.
+
+## D-065 — 2026-10-14 — Auto-sync, incident AI summary, audit report, closing and handover checklists
+- **Auto-sync:** an armed Ring check polls Event History every 15 s (Ring sync is limited to 30/min),
+  paused while the tab is hidden or another action runs, stopping on evidence, on a covered window,
+  90 s after the window closes, or on any error. The manual Sync button stays. Verified against a
+  stub: history calls at +15 s and +30 s.
+- **"Summarize with AI"** on each incident calls the existing read-only `INCIDENT_SUMMARY` task; the
+  draft appears in the copilot panel. Same provider rules as handover notes (Gemini: recorded demo
+  run only).
+- **Audit report** (`#/runs/:id/report`): a printable A4 record - checks with earlier FAILs kept,
+  OVERRIDDEN never shown as PASS, evidence limits, incident lifecycles, the AI draft labelled as a
+  draft, the full audit trail. "Save as PDF" is the browser's print dialog (no PDF library, CSP-safe).
+- **Closing and shift-handover live checklists** are built from the discovered devices alongside
+  opening; the opening template keeps its ids. Listed opening, closing, handover.
+

@@ -8,6 +8,10 @@
  * fallback), against an in-memory database. It makes real, billed Bedrock calls
  * - a few cents at most.
  *
+ * Local model (no AWS, no cost - the same Strands agent on a model served by Ollama):
+ *
+ *   AI_RUNTIME=strands-local LOCAL_MODEL_ID=qwen3:4b npm run ai:smoke --workspace apps/api
+ *
  * Credentials are found by the AWS SDK default chain (e.g. `aws configure sso` /
  * `aws login`, or environment variables set in your own terminal). This script
  * never reads, prints or stores them. Do not paste keys into chat or commit them.
@@ -41,7 +45,8 @@ async function main(): Promise<number> {
   migrate(db);
   seedReviewMode(db);
 
-  console.log(`runtime: ${runtime.runtime}  model: ${runtime.modelId}  region: ${config.AWS_REGION}`);
+  const where = runtime.provider === 'google' ? 'Google Gemini API (not Amazon Bedrock)' : runtime.provider === 'local' ? `endpoint: ${config.LOCAL_MODEL_BASE_URL} (local model, not Amazon Bedrock)` : `region: ${config.AWS_REGION}`;
+  console.log(`runtime: ${runtime.runtime}  provider: ${runtime.provider}  model: ${runtime.modelId}  ${where}`);
   const started = Date.now();
   try {
     const result = await runtime.run({ db, runId: REVIEW_RUN_ID, now: new Date() }, 'HANDOVER');
@@ -49,11 +54,18 @@ async function main(): Promise<number> {
     console.log('tool trace:');
     for (const entry of result.trace) console.log(`  ${entry.ok ? 'ok     ' : 'REFUSED'} ${entry.tool} - ${entry.summary}`);
     console.log('\n--- note ---\n' + result.text + '\n------------');
+    // AI_SMOKE_JSON=<path> keeps the exact result (note, model, provider, trace) as evidence.
+    if (process.env.AI_SMOKE_JSON) {
+      const { writeFileSync } = await import('node:fs');
+      writeFileSync(process.env.AI_SMOKE_JSON, JSON.stringify({ capturedAt: new Date().toISOString(), runtime: runtime.runtime, provider: runtime.provider, ...result }, null, 2) + '\n');
+      console.log(`saved: ${process.env.AI_SMOKE_JSON}`);
+    }
     if (result.trace.length === 0) console.log('\nWARNING: the model called no tools. Tool use (T10) is NOT demonstrated by this run.');
     return result.status === 'COMPLETED' ? 0 : 1;
   } catch (error) {
     const kind = error instanceof AiUnavailableError ? error.kind : 'PROVIDER_ERROR';
-    console.error(`FAILED: ${kind} (${Date.now() - started} ms)\n${NEXT_STEP[kind]}`);
+    const hint = runtime.provider === 'google' ? `Check GEMINI_API_KEY is set in this terminal and the model id (${runtime.modelId}) is right. Free-tier limits apply.` : runtime.provider === 'local' ? `Is Ollama running, and has "ollama pull ${runtime.modelId}" completed?` : NEXT_STEP[kind];
+    console.error(`FAILED: ${kind} (${Date.now() - started} ms)\n${hint}`);
     return 1;
   } finally {
     db.close();

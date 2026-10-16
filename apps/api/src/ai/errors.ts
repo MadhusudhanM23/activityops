@@ -41,6 +41,8 @@ interface ErrorLike {
   code?: unknown;
   message?: unknown;
   cause?: unknown;
+  /** HTTP status on non-AWS SDK errors (Google GenAI, OpenAI). */
+  status?: unknown;
   $metadata?: { httpStatusCode?: number };
 }
 
@@ -64,11 +66,20 @@ export function classifyAiError(error: unknown): AiUnavailableError {
   const codes = links.map((e) => String(e.code ?? ''));
   const text = links.map((e) => String(e.message ?? '')).join(' ').toLowerCase();
   const has = (...candidates: string[]) => candidates.some((c) => names.includes(c));
+  const statuses = links.map((e) => Number(e.status ?? e.$metadata?.httpStatusCode ?? 0));
+  const status = (...candidates: number[]) => candidates.some((c) => statuses.includes(c));
 
   if (has('CredentialsProviderError', 'ExpiredTokenException', 'UnrecognizedClientException', 'InvalidSignatureException') ||
       text.includes('could not load credentials')) {
     return new AiUnavailableError('NO_CREDENTIALS');
   }
+  // Non-AWS providers (Gemini, OpenAI-compatible) report by HTTP status.
+  if (text.includes('api key not valid') || text.includes('api key is required') || status(401)) {
+    return new AiUnavailableError('NO_CREDENTIALS');
+  }
+  if (status(429)) return new AiUnavailableError('THROTTLED');
+  if (status(403)) return new AiUnavailableError('ACCESS_DENIED');
+  if (status(404)) return new AiUnavailableError('MODEL_NOT_FOUND');
   if (has('AccessDeniedException')) return new AiUnavailableError('ACCESS_DENIED');
   if (has('ResourceNotFoundException') ||
       (has('ValidationException') && (text.includes('model identifier') || text.includes('model id')))) {

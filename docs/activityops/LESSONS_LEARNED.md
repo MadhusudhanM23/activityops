@@ -282,3 +282,23 @@ A hardened container run reported unhealthy: `unable to open database file`. The
 read-only root filesystem but omitted the `/data` volume, so SQLite had nowhere to write. Every
 earlier run and the Compose file mount it. Reading the container log before concluding anything
 settled it in one step; the fail-fast at startup is the correct behaviour.
+
+### L-34 — Reading an error message instead of the quota
+Bedrock answered "Too many tokens per day, please wait". I first concluded the limit was permanent
+from `Adjustable: False`, then a second region showed "account being verified" - so that conclusion
+was also too strong. Both times the fix was the same: read the account's actual state (Service
+Quotas, account creation date, a second region) before writing a conclusion into the records, and
+correct the record plainly when new evidence arrives (T9, R-009).
+
+### L-35 — A check that passes in tests can still mislead on screen
+A scripted click-through of Live Test with the device offline showed a second run reading "Blocked"
+while its Incidents panel said "No incidents". Incidents belong to the check and carry across runs
+(readiness already counted them), but the panel filtered by run. No unit test covered "what the
+operator sees on the next run". Walking the real UI as a user found it in minutes (D-062).
+
+### L-36 — Python string escapes corrupted three edits
+Editing TypeScript through Python heredocs turned `'
+'` and `` into real control characters
+three times, breaking a build and a file path. Edits containing backslashes now go through the
+editor tool, not generated Python strings.
+

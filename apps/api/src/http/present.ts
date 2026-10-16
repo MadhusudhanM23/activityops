@@ -68,6 +68,8 @@ export interface IncidentView {
   resolvedAt: string | null;
   resolvedBy: string | null;
   dismissedReason: string | null;
+  /** An open incident on one of this run's checks that was raised during an earlier run. */
+  carriedOver: boolean;
   allowedTransitions: readonly string[];
   actions: { action: string; reason: string | null; actor: string; createdAt: string }[];
 }
@@ -169,8 +171,14 @@ export function presentIncidents(db: DatabaseSync, where: { runId?: string; open
   const clauses: string[] = [];
   const params: string[] = [];
   if (where.runId) {
-    clauses.push('i.run_id = ?');
-    params.push(where.runId);
+    // An incident belongs to its check and stays open across runs until resolved
+    // (readiness already counts it), so a run also lists open incidents carried
+    // over from earlier runs of the same checks.
+    clauses.push(
+      `(i.run_id = ? OR (i.status NOT IN ('RESOLVED', 'DISMISSED') AND i.check_id IN (
+         SELECT c2.id FROM verification_check c2 JOIN verification_run r ON r.template_id = c2.template_id WHERE r.id = ?)))`,
+    );
+    params.push(where.runId, where.runId);
   }
   if (where.openOnly) clauses.push("i.status NOT IN ('RESOLVED', 'DISMISSED')");
   const sql = `SELECT i.*, c.label AS check_label FROM incident i
@@ -189,6 +197,7 @@ export function presentIncidents(db: DatabaseSync, where: { runId?: string; open
     resolved_at: string | null;
     resolved_by: string | null;
     dismissed_reason: string | null;
+    run_id: string | null;
   }>(db, sql, ...params).map((incident) => ({
     id: incident.id,
     checkId: incident.check_id,
@@ -200,6 +209,7 @@ export function presentIncidents(db: DatabaseSync, where: { runId?: string; open
     resolvedAt: incident.resolved_at,
     resolvedBy: incident.resolved_by,
     dismissedReason: incident.dismissed_reason,
+    carriedOver: Boolean(where.runId) && incident.run_id !== where.runId,
     allowedTransitions: allowedTransitions(incident.status as IncidentStatus),
     actions: rows<{ action: string; reason: string | null; actor: string; created_at: string }>(
       db,
@@ -367,7 +377,21 @@ export function listAudit(db: DatabaseSync, runId: string) {
          OR (a.entity_type = 'verification_attempt'
              AND a.entity_id IN (SELECT id FROM verification_attempt WHERE run_id = ?))
          OR (a.entity_type = 'incident' AND a.entity_id IN (SELECT id FROM incident WHERE run_id = ?))
+         -- An incident carried over from an earlier run blocks this run too (D-062), so what
+         -- people did to it while this run was open belongs in this run's trail as well.
+         OR (a.entity_type = 'incident'
+             AND a.entity_id IN (
+               SELECT i.id FROM incident i
+                 JOIN verification_check c ON c.id = i.check_id
+                 JOIN verification_run r ON r.template_id = c.template_id
+                WHERE r.id = ?)
+             AND a.timestamp >= (SELECT started_at FROM verification_run WHERE id = ?)
+             AND a.timestamp <= COALESCE(
+               (SELECT COALESCE(approved_at, cancelled_at) FROM verification_run WHERE id = ?), '9999'))
       ORDER BY a.timestamp, a.rowid`,
+    runId,
+    runId,
+    runId,
     runId,
     runId,
     runId,

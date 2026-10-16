@@ -1,22 +1,44 @@
-# Submission checklist (spec sec. 31)
+# Submission checklist
 
-Deadline: 23 October 2026. Verify the exact Devpost cutoff timestamp on the submission page
-immediately before uploading.
+Checked against the official Devpost rules (amazonappdev2026.devpost.com/rules), read 2026-10-10.
+Deadline: **23 October 2026, 12:00 PM PDT** (24 October 00:30 IST). Submit a day early.
 
-- [ ] Correct Ring track selected
-- [ ] Ring technology used at runtime, not mocked
-- [ ] AWS Builder requirements satisfied — **at risk**: needs a real Bedrock-backed agent; foundation built, model access missing (B-002)
-- [ ] Public GitHub repository exists
-- [x] Visible license, or configured private reviewer access — MIT `LICENSE` committed
-- [x] No secrets or tokens in git history or fixtures — `scan-secrets.mjs --history` clean (2026-10-08); re-run before submitting
-- [ ] Hosted judge Review Mode works without a token — works locally and in the container; not yet hosted
-- [ ] Live Playground reconnect flow works
-- [x] Testing instructions present ("Judge Test — 5 Minutes") — in README; must be updated with the hosted URL
-- [ ] Public YouTube/Vimeo video, English, under 3 minutes
-- [ ] Product feedback completed for every relevant Ring/AWS tool — Ring done; AWS pending real use
-- [ ] Friction log submitted if genuine friction was encountered — `FRICTION_LOG.md` written (7 entries); submit with the entry
-- [ ] AWS architecture described accurately
-- [x] All demo data labelled SIMULATED or RECORDED DEMO — enforced in UI and API
-- [x] Privacy / delete controls demoable — verified in the production container (2026-10-08)
-- [ ] Organizer watermark question answered, or video adjusted to avoid the claim
-- [ ] Final submission uploaded before the Devpost deadline
+## Eligibility and project rules
+- [x] Entrant eligible (India is not excluded; individual entry)
+- [x] Built during the Submission Period (31 Aug - 23 Oct 2026): first commit 2026-10-07
+- [x] English materials
+- [x] Ring track: Ring API imported and called at runtime (`RingClient` in `apps/api/src/app.ts`)
+- [x] AWS Builder: Strands Agents SDK used at runtime, integration documented (README, D-053, D-061);
+      run for real 2026-10-10 ([evidence](../../evidence/ai/strands-gemini-handover.json))
+- [ ] **Check Ring developer terms** allow sending Playground-derived facts to a third-party AI
+      (Gemini). Only recorded demo data is sent; no video, images or tokens. If not allowed: remove
+      the recorded Gemini note from Review Mode and run with `AI_RUNTIME=off`
+- [x] Third-party terms otherwise: Gemini API key used under Google's terms; free-tier data use
+      disclosed in the privacy notice
+
+## Repository
+- [ ] On GitHub, default branch contains this work (currently `feature/bedrock-strands`, unpushed)
+- [x] Open-source licence (MIT `LICENSE`); must show in the repo's About section once public
+- [x] Setup and run instructions (README "Run it locally", "Judge Test - 5 Minutes")
+- [x] Login credentials for testing documented (local `demo.operator`)
+- [x] No secrets: `node scripts/scan-secrets.mjs --history` clean - re-run before pushing
+- [x] Internal handover notes (`document.txt`) git-ignored
+- [ ] Fresh-clone run verified just before submitting
+
+## Video (YouTube or Vimeo, public)
+- [ ] Under 3 minutes; English
+- [ ] Shows the project working through the Ring Developer Playground (Live Test) and Review Mode
+- [ ] Shows the Strands agent output and its tool trace
+- [ ] No copyrighted music; avoid unneeded third-party marks (the honest "Google Gemini" label is
+      deliberate)
+- [ ] Organizer watermark question answered, or video avoids the claim (ORGANIZER_QUESTIONS.md)
+
+## Devpost form
+- [ ] Text description of features and functionality
+- [ ] Primary track: **Ring**. Mini challenge: **AWS Builder**
+- [x] Product Feedback per tool, answering all five questions (`PRODUCT_FEEDBACK.md`), including
+      which AWS services were used and how
+- [x] Optional feature requests with priority ratings (`PRODUCT_FEEDBACK.md`)
+- [x] Optional friction log, every entry with task, expected vs actual, severity, workaround and
+      suggestion (`FRICTION_LOG.md`, F-01 - F-09) - worth up to a 10% bonus
+- [ ] Submitted before the deadline

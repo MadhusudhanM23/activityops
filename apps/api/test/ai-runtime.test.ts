@@ -1,7 +1,7 @@
 import { Writable } from 'node:stream';
 import { Model } from '@strands-agents/sdk';
 import type { ConverseCommand, ConverseCommandOutput } from '@aws-sdk/client-bedrock-runtime';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SYSTEM_PROMPT, TASK_INSTRUCTIONS } from '../src/ai/agent.js';
 import { BedrockConverseClient, type ConverseSender } from '../src/ai/bedrockConverse.js';
 import { AiUnavailableError, classifyAiError } from '../src/ai/errors.js';
@@ -9,12 +9,13 @@ import { createAiRuntime } from '../src/ai/factory.js';
 import { ConverseRuntime, type AiRuntime } from '../src/ai/runtime.js';
 import { StrandsRuntime } from '../src/ai/strandsRuntime.js';
 import { TOOL_SPECS } from '../src/ai/tools.js';
-import { loadConfig } from '../src/config.js';
+import { isLoopbackUrl, loadConfig } from '../src/config.js';
+import { privacyNotice } from '../src/http/routes/data.js';
 import { attest, startAttempt } from '../src/domain/attempts.js';
 import { readiness } from '../src/domain/runs.js';
-import { REVIEW_RUN_ID, seedReviewMode } from '../src/seed/reviewMode.js';
+import { RECORDED_AI_NOTE_ID, REVIEW_RUN_ID, seedReviewMode } from '../src/seed/reviewMode.js';
 import { at, makeFixture, T0 } from './helpers/fixture.js';
-import { type Harness, makeHarness } from './helpers/http.js';
+import { FAKE_TOKEN, type Harness, makeHarness } from './helpers/http.js';
 
 /**
  * Offline tests for the real AI runtimes. No AWS credentials and no network:
@@ -199,6 +200,15 @@ describe('error classification', () => {
     expect(classifyAiError(error).kind).toBe(kind);
   });
 
+  it('classifies non-AWS providers by HTTP status (Gemini free-tier 429 is THROTTLED, not a provider error)', () => {
+    const apiError = (status: number, message = 'x') => Object.assign(new Error(message), { name: 'ApiError', status });
+    expect(classifyAiError(apiError(429)).kind).toBe('THROTTLED');
+    expect(classifyAiError(apiError(403)).kind).toBe('ACCESS_DENIED');
+    expect(classifyAiError(apiError(404)).kind).toBe('MODEL_NOT_FOUND');
+    expect(classifyAiError(apiError(400, 'API key not valid. Please pass a valid API key.')).kind).toBe('NO_CREDENTIALS');
+    expect(classifyAiError(new Error('wrapper', { cause: apiError(429) })).kind).toBe('THROTTLED');
+  });
+
   it('follows the cause chain through a wrapping SDK error', () => {
     const wrapped = Object.assign(new Error('model call failed'), { name: 'ModelError', cause: awsError('AccessDeniedException') });
     expect(classifyAiError(wrapped).kind).toBe('ACCESS_DENIED');
@@ -304,6 +314,60 @@ describe('configuration and factory', () => {
     expect(() => loadConfig({ ...base, BEDROCK_MODEL_ID: 'm' })).toThrow(/AWS_REGION/);
   });
 
+  it('Bedrock runtimes report Amazon Bedrock as the provider', () => {
+    expect(createAiRuntime(loadConfig({ ...base, BEDROCK_MODEL_ID: 'm', AWS_REGION: 'us-east-1' }))!.provider).toBe('bedrock');
+    expect(
+      createAiRuntime(loadConfig({ ...base, BEDROCK_MODEL_ID: 'm', AWS_REGION: 'us-east-1', AI_RUNTIME: 'bedrock-converse' }))!.provider,
+    ).toBe('bedrock');
+  });
+
+  it('strands-local runs the same Strands agent on a local model, labelled local, with no AWS settings', () => {
+    const runtime = createAiRuntime(loadConfig({ ...base, AI_RUNTIME: 'strands-local', LOCAL_MODEL_ID: 'qwen3:4b' }));
+    expect(runtime).toBeInstanceOf(StrandsRuntime);
+    expect(runtime!.runtime).toBe('strands');
+    expect(runtime!.provider).toBe('local');
+    expect(runtime!.modelId).toBe('qwen3:4b');
+  });
+
+  it('strands-gemini runs the same Strands agent on Gemini, labelled google, and never keeps the key in config', () => {
+    const config = loadConfig({ ...base, AI_RUNTIME: 'strands-gemini', GEMINI_API_KEY: 'test-key-not-real' });
+    expect(JSON.stringify(config)).not.toContain('test-key-not-real');
+    expect(config.GEMINI_API_KEY_SET).toBe(true);
+    vi.stubEnv('GEMINI_API_KEY', 'test-key-not-real'); // the Google SDK reads the real environment
+    const runtime = createAiRuntime(config);
+    vi.unstubAllEnvs();
+    expect(runtime).toBeInstanceOf(StrandsRuntime);
+    expect(runtime!.provider).toBe('google');
+    expect(runtime!.modelId).toBe('gemini-2.5-flash');
+  });
+
+  it('strands-gemini without a key is a startup error', () => {
+    expect(() => loadConfig({ ...base, AI_RUNTIME: 'strands-gemini' })).toThrow(/GEMINI_API_KEY/);
+  });
+
+  it('strands-local without a model id is a startup error', () => {
+    expect(() => loadConfig({ ...base, AI_RUNTIME: 'strands-local' })).toThrow(/LOCAL_MODEL_ID/);
+  });
+
+  it('strands-local refuses any endpoint that is not on this machine', () => {
+    for (const url of ['https://api.openai.com/v1', 'http://10.0.0.5:11434/v1', 'http://localhost.example.com/v1', 'file:///etc/passwd', 'not a url']) {
+      expect(() => loadConfig({ ...base, AI_RUNTIME: 'strands-local', LOCAL_MODEL_ID: 'm', LOCAL_MODEL_BASE_URL: url })).toThrow(
+        /LOCAL_MODEL_BASE_URL/,
+      );
+    }
+    for (const url of ['http://127.0.0.1:11434/v1', 'http://localhost:11434/v1', 'http://[::1]:11434/v1']) expect(isLoopbackUrl(url)).toBe(true);
+  });
+
+  it('the privacy notice says a local model sends nothing to Bedrock or any external AI service', () => {
+    const section = (provider: 'bedrock' | 'local') =>
+      privacyNotice(true, provider).sections.find((s) => s.heading.includes('Amazon Bedrock'))!.body.join(' ');
+    expect(section('local')).toMatch(/not sent to Amazon Bedrock or to any other external AI service/);
+    expect(section('bedrock')).toMatch(/^Yes, when you ask the AI assistant/);
+    expect(privacyNotice(true, 'google').sections.find((s) => s.heading.includes('Amazon Bedrock'))!.body.join(' ')).toMatch(
+      /only drafts notes for the published recorded demo run\. Live Ring-derived data is never sent to it/,
+    );
+  });
+
   it('building the runtime makes no AWS call, so a server without credentials still starts', () => {
     expect(() => createAiRuntime(loadConfig({ ...base, BEDROCK_MODEL_ID: 'm', AWS_REGION: 'us-east-1' }))).not.toThrow();
   });
@@ -320,10 +384,38 @@ describe('AI failure over HTTP never affects readiness or leaks detail', () => {
   // (the real runtimes classify first; this guards against one that does not).
   const failing = (error: Error): AiRuntime => ({
     runtime: 'strands',
+    provider: 'bedrock',
     modelId: 'm',
     run: async () => {
       throw error;
     },
+  });
+
+  it('a Gemini-backed copilot refuses live runs without calling the model, and drafts for the recorded demo', async () => {
+    let calls = 0;
+    const gemini: AiRuntime = {
+      runtime: 'strands',
+      provider: 'google',
+      modelId: 'gemini-test',
+      run: async () => {
+        calls += 1;
+        return { status: 'COMPLETED', text: 'Draft.', trace: [], modelId: 'gemini-test' } as never;
+      },
+    };
+    h = await makeHarness({ ai: gemini });
+    seedReviewMode(h.db);
+    const connected = await h.call('POST', '/api/ring/connect', { token: FAKE_TOKEN, noticeAcknowledged: true });
+    const live = (await h.call('POST', '/api/runs', { templateId: connected.json().templateId })).json();
+
+    const refused = await h.call('POST', '/api/ai/ask', { runId: live.id, task: 'HANDOVER' });
+    expect(refused.statusCode).toBe(503);
+    expect(refused.json().error).toBe('AI_NOT_FOR_LIVE_DATA');
+    expect(calls).toBe(0);
+
+    const demo = await h.call('POST', '/api/ai/ask', { runId: REVIEW_RUN_ID, task: 'HANDOVER' });
+    expect(demo.statusCode).toBe(200);
+    expect(demo.json()).toMatchObject({ provider: 'google', status: 'COMPLETED' });
+    expect(calls).toBe(1);
   });
 
   it('answers 503 AI_UNAVAILABLE with the kind only, and readiness is unchanged', async () => {
@@ -341,7 +433,7 @@ describe('AI failure over HTTP never affects readiness or leaks detail', () => {
     expect(logs).toContain('ACCESS_DENIED');
     expect(logs).not.toMatch(/arn:aws|123456789012/);
     expect((await h.call('GET', `/api/runs/${REVIEW_RUN_ID}`)).json().readiness).toEqual(before);
-    expect(h.db.prepare('SELECT COUNT(*) AS n FROM ai_interaction').get()).toEqual({ n: 0 });
+    expect(h.db.prepare('SELECT COUNT(*) AS n FROM ai_interaction WHERE id <> ?').get(RECORDED_AI_NOTE_ID)).toEqual({ n: 0 });
   });
 
   it('the deterministic answers still work while the model is failing', async () => {
