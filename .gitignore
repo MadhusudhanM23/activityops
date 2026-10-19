@@ -13,7 +13,7 @@ coverage/
 evidence/day-1/raw/
 *.tsbuildinfo
 
-# Local handover notes for Claude sessions - internal, never publish
+# Local working notes - never publish
 document.txt
 NEXT_STEPS.md
 NEXT_STEPS.pdf

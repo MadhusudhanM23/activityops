@@ -6,7 +6,68 @@ decisions, and an audit trail of what still needs action.**
 > ActivityOps records the check, the Ring evidence, the operator decision, and what still needs
 > action.
 
-Built for the Amazon Developer Hackathon 2026 — **Ring track**, AWS Builder mini challenge.
+Built for the Amazon Developer Hackathon 2026 — **Ring track** and **AWS Builder** mini challenge.
+MIT licensed.
+
+![ActivityOps overview](docs/screenshots/01-home.png)
+
+## Try it in 60 seconds
+
+Needs **Node.js 24**. No Ring token, AWS account or API key is needed to explore.
+
+```bash
+git clone https://github.com/MadhusudhanM23/activityops.git
+cd activityops
+npm install
+npm run dev
+```
+
+Open <http://localhost:5173> (use `localhost`, not `127.0.0.1`) and click **Open the recorded run**:
+a *Two-minute tour* walks through the six things worth seeing. For **Live Test** against your own Ring
+Developer Playground, sign in with `demo.operator` / `activityops-dev-only` (local only; the server
+refuses this password in production) and follow [Judge Test — 5 Minutes](#judge-test--5-minutes).
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Recorded run: evidence, readiness, incidents](docs/screenshots/02-recorded-run.png) | ![Strands agent handover note with its tool trace](docs/screenshots/03-ai-copilot.png) |
+| *The recorded run: real Ring evidence with what it does not prove, a kept FAIL and recheck, an override that is never a PASS, incident lifecycles* | *The Strands agent's handover note and the read-only tools it called* |
+| ![Printable audit report](docs/screenshots/04-audit-report.png) | ![Phone layout](docs/screenshots/06-phone-run.png) |
+| *A printable verification report for head office or an inspector* | *The same run on a phone* |
+
+## What the hackathon asks for, and where to find it
+
+| Requirement | Where |
+|---|---|
+| Ring technology used at runtime, imported and called | [`apps/api/src/ring/client.ts`](apps/api/src/ring/client.ts) (devices, status, Event History), wired in [`apps/api/src/app.ts`](apps/api/src/app.ts). Exercised live on 2026-10-12: [T8 evidence](evidence/day-1/T8-live-view.md) |
+| AWS Builder: an AWS service with a documented integration | **Strands Agents SDK** agent: [`strandsRuntime.ts`](apps/api/src/ai/strandsRuntime.ts), read-only [`tools.ts`](apps/api/src/ai/tools.ts), model wiring in [`factory.ts`](apps/api/src/ai/factory.ts); a real run is saved in [`evidence/ai/`](evidence/ai/strands-gemini-handover.json). Bedrock status, honestly: [T9](evidence/day-1/T9-bedrock.md) |
+| Setup and run instructions | [Try it in 60 seconds](#try-it-in-60-seconds) and [Run it locally](#run-it-locally) |
+| Open-source licence | [`LICENSE`](LICENSE) (MIT) |
+| Product feedback for every tool, with AWS services described | [`PRODUCT_FEEDBACK.md`](PRODUCT_FEEDBACK.md) |
+| Friction log (task, steps, expected vs actual, severity, workaround, suggestion) | [`FRICTION_LOG.md`](FRICTION_LOG.md), 9 entries |
+| Feature requests with priority | [`PRODUCT_FEEDBACK.md`](PRODUCT_FEEDBACK.md#feature-requests) |
+| Built during the submission period (31 Aug – 23 Oct 2026) | First commit 2026-10-07; see the git history |
+| Demo video | Linked on the Devpost submission |
+
+## How it maps to the judging criteria
+
+| Criterion | What to look at |
+|---|---|
+| **Tech Implementation** | The real Ring API end to end: device discovery, status and Event History, filtered client-side because the Playground ignores the `event_types` filter (F-01). A session counts only on the check's device, as `on_demand`, inside the check window, and only once (database `UNIQUE`). Attempts are immutable by database trigger; readiness is derived, never stored. A Strands agent with ten read-only tools, a step limit, a timeout and an output guard. 273 automated tests; six security guards are mutation-tested |
+| **Design** | A first-time visitor is guided: a start-here page, a two-minute tour, a four-step Ring check with a live countdown, readiness explained in plain language, toasts for every action, a phone layout. Every screen is labelled RECORDED DEMO, LIVE PLAYGROUND or SIMULATED |
+| **Potential Impact** | [Who it is for](#who-it-is-for): multi-site operators that already own Ring cameras, with a printable audit report and a Ring Appstore path. See [What's next](#whats-next) |
+| **Quality of the Idea** | A non-security business system that treats the camera as a timestamped witness, never a judge. The UI never says "person detected" or "site clear", and a test fails the build if it does |
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `apps/api` | Fastify API: domain engine (`src/domain`), Ring adapter (`src/ring`), AI agent (`src/ai`), routes, security, tests |
+| `apps/web` | React + Tailwind UI |
+| `docs/activityops` | Decisions, risks, test results, lessons, build status, demo script |
+| `evidence` | What the real Ring and AWS APIs did, redacted; the saved AI run |
+| `deploy` | The container and EC2 runbook (verified locally, not deployed) |
 
 ---
 
@@ -86,8 +147,9 @@ attestation is the business decision. ActivityOps never says "person detected", 
 10. *Optional, Live Test:* **Sign in** (credentials below), tick the data-practices notice, paste a
     fresh **Ring Developer Playground** OAuth token, and connect. ActivityOps discovers however many
     devices the account has and builds a live checklist from them.
-11. Start a run, **Start Ring check**, open Ring live view in the Playground, then **Sync Ring
-    history** to bind the session and unlock PASS.
+11. Start a run and press **Start Ring check**, then in the Playground pick **Simulate live view
+    event**. ActivityOps checks Ring history by itself every 15 seconds (or press **Sync Ring
+    history**); the session is bound and **Record PASS** unlocks.
 
 The interface always distinguishes **RECORDED DEMO**, **LIVE PLAYGROUND**, **SIMULATED** and
 **RECONNECT REQUIRED** (shown when Ring sync is unavailable — which is never treated as evidence
@@ -100,6 +162,9 @@ about the site).
 | Local development | `demo.operator` | `activityops-dev-only` (the server refuses this value in production) |
 
 ## Architecture
+
+The target architecture. Today the app runs locally; the EC2 deployment is designed and verified in
+Docker but not deployed (see [Known limitations](#known-limitations)).
 
 ```mermaid
 flowchart LR
